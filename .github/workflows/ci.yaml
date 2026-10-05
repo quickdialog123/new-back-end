@@ -6,11 +6,6 @@ on:
       - main
       - pre-production
 
-  push:
-    branches:
-      - main
-      - pre-production
-
 jobs:
   quality:
     name: Quality Gate
@@ -55,7 +50,7 @@ jobs:
         run: pnpm test:coverage
 
       - name: Report coverage
-        if: github.event_name == 'pull_request'
+        if: always()
         uses: davelosert/vitest-coverage-report-action@v2
         with:
           file-coverage-mode: changes

@@ -1,26 +1,22 @@
 name: Deploy Pre-production
 
 on:
-  workflow_run:
-    workflows:
-      - QuickDialog CI
-    types:
-      - completed
+  push:
     branches:
       - pre-production
+
+concurrency:
+  group: quickdialog-pre-production
+  cancel-in-progress: true
 
 jobs:
   deploy:
     name: Deploy Pre-production
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Deploy Pre-production
-        run: echo "deploy pre-production test for deployment"
+        run: echo "deploy pre-production"
