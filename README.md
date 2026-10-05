@@ -341,7 +341,7 @@ CI runs the same quality checks before deployment.
 
 ## CI/CD
 
-Pull requests targeting `main` (production) or `staging` (pre-production) run CI.
+Pull requests targeting `main` (production) or `pre-production` (pre-production) run CI.
 
 Deployment follows this flow:
 
@@ -352,7 +352,7 @@ PR -> CI -> merge PR -> CI on merged commit -> deploy if CI pass
 Expected branch mapping:
 
 ```text
-staging -> pre-roduction environment
+pre-production -> pre-roduction environment
 main    -> production environment
 ```
 
