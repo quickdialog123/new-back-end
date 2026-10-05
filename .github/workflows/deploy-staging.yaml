@@ -3,7 +3,7 @@ name: Deploy Pre-production
 on:
   push:
     branches:
-      - main
+      - pre-production
 
 permissions:
   contents: read
