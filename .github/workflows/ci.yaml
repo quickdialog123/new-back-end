@@ -1,6 +1,11 @@
 name: QuickDialog CI
 
 on:
+  push:
+    branches:
+      - main
+      - pre-production
+
   pull_request:
     branches:
       - main
