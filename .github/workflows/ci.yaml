@@ -1,9 +1,12 @@
 name: QuickDialog CI
 
 on:
-  workflow_call:
-
   pull_request:
+    branches:
+      - main
+      - pre-production
+
+  push:
     branches:
       - main
       - pre-production
@@ -48,17 +51,11 @@ jobs:
       - name: Type check
         run: pnpm typecheck
 
-      - name: Unit tests
-        run: pnpm test:unit
-
-      - name: Integration tests
-        run: pnpm test:integration
-
       - name: Coverage
         run: pnpm test:coverage
 
       - name: Report coverage
-        if: always()
+        if: github.event_name == 'pull_request'
         uses: davelosert/vitest-coverage-report-action@v2
         with:
           file-coverage-mode: changes
