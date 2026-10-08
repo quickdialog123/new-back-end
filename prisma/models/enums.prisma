@@ -2,4 +2,6 @@ enum UserRole {
   OWNER
   STAFF
   SUPER_ADMIN
+  CLIENT
+  AUTHORITY
 }
