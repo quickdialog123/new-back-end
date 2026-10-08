@@ -1,3 +1,4 @@
+import { WhatsappModule } from './whatsapp/whatsapp.module.js';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { LoggingModule } from './common/logging/logging.module.js';
 import { Module } from '@nestjs/common';
@@ -31,6 +32,7 @@ import { OriginGuard } from './common/guards/origin.guard.js';
     DatabaseModule,
     AuthModule,
     LoggingModule,
+    WhatsappModule,
   ],
   // Read this before start https://docs.nestjs.com/fundamentals/custom-providers
   providers: [
