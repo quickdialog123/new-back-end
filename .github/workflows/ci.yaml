@@ -4,12 +4,12 @@ on:
   push:
     branches:
       - main
-      - pre-production
+      - production
 
   pull_request:
     branches:
       - main
-      - pre-production
+      - production
 
 jobs:
   quality:
