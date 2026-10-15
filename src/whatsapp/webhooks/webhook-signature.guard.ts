@@ -29,6 +29,7 @@ export class WebhookSignatureGuard implements CanActivate {
 
     /**
      * example signature:  sha256=4d44b4b7cf4ff765ff1dd83243f29f1c13e902468c02d7c0c59f12af5ac7af56
+     * check HMAC-SHA256
      */
     const signature = request.headers[SIGNATURE_HEADER];
     const rawBody = request.rawBody;
