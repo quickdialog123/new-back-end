@@ -48,7 +48,7 @@ export const authenticatedUserSwaggerSchema = {
     },
     role: {
       type: 'string',
-      enum: ['OWNER', 'STAFF', 'SUPER_ADMIN'],
+      enum: ['OWNER', 'STAFF', 'SUPER_ADMIN', 'CLIENT', 'AUTHORITY'],
       example: 'OWNER',
     },
   },

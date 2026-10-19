@@ -42,6 +42,9 @@ export class AuthService {
       where: {
         email: input.email,
       },
+      include: {
+        hotel: true,
+      },
     });
 
     const passwordValid = await bcrypt.compare(
@@ -49,7 +52,12 @@ export class AuthService {
       user?.passwordHash ?? DUMMY_PASSWORD_HASH,
     );
 
-    if (!user || !passwordValid || !user.active) {
+    if (
+      !user ||
+      !passwordValid ||
+      !user.active ||
+      !this.canAuthenticate(user)
+    ) {
       throw this.invalidCredentials();
     }
 
@@ -108,7 +116,11 @@ export class AuthService {
       },
 
       include: {
-        user: true,
+        user: {
+          include: {
+            hotel: true,
+          },
+        },
       },
     });
 
@@ -147,7 +159,10 @@ export class AuthService {
      * Disabled users cannot continue
      * refreshing existing sessions.
      */
-    if (!currentSession.user.active) {
+    if (
+      !currentSession.user.active ||
+      !this.canAuthenticate(currentSession.user)
+    ) {
       await this.revokeFamily(currentSession.familyId);
 
       throw this.invalidCredentials();
@@ -255,12 +270,20 @@ export class AuthService {
     user: User,
     sessionId: string,
   ): Promise<string> {
-    const payload: JwtPayload = {
-      sub: user.id,
-      sid: sessionId,
-      hotelId: user.hotelId,
-      role: user.role,
-    };
+    const payload: JwtPayload =
+      user.role === 'SUPER_ADMIN'
+        ? {
+            sub: user.id,
+            sid: sessionId,
+            hotelId: user.hotelId,
+            role: user.role,
+          }
+        : {
+            sub: user.id,
+            sid: sessionId,
+            hotelId: user.hotelId!,
+            role: user.role,
+          };
 
     return this.jwtService.signAsync(payload);
   }
@@ -288,6 +311,12 @@ export class AuthService {
         revokedAt: new Date(),
       },
     });
+  }
+
+  private canAuthenticate(
+    user: Pick<User, 'role'> & { hotel: { active: boolean } | null },
+  ): boolean {
+    return user.role === 'SUPER_ADMIN' || user.hotel?.active === true;
   }
 
   private invalidCredentials(): UnauthorizedException {

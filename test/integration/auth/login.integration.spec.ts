@@ -39,6 +39,7 @@ describe('Auth login integration', () => {
   afterEach(async () => {
     await prisma.refreshSession.deleteMany();
     await prisma.user.deleteMany();
+    await prisma.hotel.deleteMany();
   });
 
   afterAll(async () => {
@@ -53,7 +54,13 @@ describe('Auth login integration', () => {
         fullName: 'Test Owner',
         role: 'OWNER',
         active: true,
-        hotelId: null,
+        hotel: {
+          create: {
+            name: 'Test Hotel',
+            phoneNumber: '+1 555 010 0000',
+            token: 'test-hotel',
+          },
+        },
       },
     });
   }
@@ -131,5 +138,38 @@ describe('Auth login integration', () => {
     });
 
     expect(await prisma.refreshSession.count()).toBe(0);
+  });
+
+  it('rejects a hotel-bound user whose hotel is inactive', async () => {
+    const user = await createUser();
+    await prisma.hotel.update({
+      where: { id: user.hotelId! },
+      data: { active: false },
+    });
+
+    await expect(
+      authService.login({ email, password }, {}),
+    ).rejects.toMatchObject({
+      message: 'Invalid email or password',
+    });
+    expect(await prisma.refreshSession.count()).toBe(0);
+  });
+
+  it('allows a super admin without a hotel', async () => {
+    await prisma.user.create({
+      data: {
+        email: 'admin@example.com',
+        passwordHash: await bcrypt.hash(password, 12),
+        fullName: 'Super Admin',
+        role: 'SUPER_ADMIN',
+      },
+    });
+
+    await expect(
+      authService.login({ email: 'admin@example.com', password }, {}),
+    ).resolves.toEqual({
+      accessToken: expect.any(String),
+      refreshToken: expect.any(String),
+    });
   });
 });

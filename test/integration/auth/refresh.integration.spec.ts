@@ -45,6 +45,7 @@ describe('Auth refresh integration', () => {
   afterEach(async () => {
     await prisma.refreshSession.deleteMany();
     await prisma.user.deleteMany();
+    await prisma.hotel.deleteMany();
   });
 
   afterAll(async () => {
@@ -59,7 +60,13 @@ describe('Auth refresh integration', () => {
         fullName: 'Test Owner',
         role: 'OWNER',
         active: true,
-        hotelId: null,
+        hotel: {
+          create: {
+            name: 'Test Hotel',
+            phoneNumber: '+1 555 010 0000',
+            token: 'test-hotel',
+          },
+        },
       },
     });
   }
@@ -258,6 +265,29 @@ describe('Auth refresh integration', () => {
 
           revokedAt: null,
         },
+      }),
+    ).toBe(0);
+  });
+
+  it('revokes the family when the user hotel becomes inactive', async () => {
+    const { user, tokens } = await login();
+    const session = await prisma.refreshSession.findFirstOrThrow({
+      where: { userId: user.id },
+    });
+
+    await prisma.hotel.update({
+      where: { id: user.hotelId! },
+      data: { active: false },
+    });
+
+    await expect(
+      authService.refresh(tokens.refreshToken, {}),
+    ).rejects.toMatchObject({
+      message: 'Invalid email or password',
+    });
+    expect(
+      await prisma.refreshSession.count({
+        where: { familyId: session.familyId, revokedAt: null },
       }),
     ).toBe(0);
   });

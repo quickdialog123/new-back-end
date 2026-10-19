@@ -44,14 +44,14 @@ describe('JwtStrategy', () => {
     const result = strategy.validate({
       sub: '4e3ee6a0-eec9-47c8-9fe3-e92afe8a2b1b',
       sid: '8d234fad-ceec-4f64-bb1b-1459c0b16cd7',
-      hotelId: null,
+      hotelId: 'c5497c67-4e65-4644-bbb9-e9fb40f76627',
       role: 'OWNER',
     });
 
     expect(result).toEqual({
       userId: '4e3ee6a0-eec9-47c8-9fe3-e92afe8a2b1b',
       sessionId: '8d234fad-ceec-4f64-bb1b-1459c0b16cd7',
-      hotelId: null,
+      hotelId: 'c5497c67-4e65-4644-bbb9-e9fb40f76627',
       role: 'OWNER',
     });
   });
@@ -61,9 +61,31 @@ describe('JwtStrategy', () => {
       strategy.validate({
         sub: '',
         sid: 'invalid',
+        hotelId: 'c5497c67-4e65-4644-bbb9-e9fb40f76627',
+        role: 'OWNER',
+      }),
+    ).toThrow(UnauthorizedException);
+  });
+
+  it('rejects hotel-bound roles without a valid hotel ID', () => {
+    expect(() =>
+      strategy.validate({
+        sub: '4e3ee6a0-eec9-47c8-9fe3-e92afe8a2b1b',
+        sid: '8d234fad-ceec-4f64-bb1b-1459c0b16cd7',
         hotelId: null,
         role: 'OWNER',
       }),
     ).toThrow(UnauthorizedException);
+  });
+
+  it('allows a super admin without a hotel ID', () => {
+    expect(
+      strategy.validate({
+        sub: '4e3ee6a0-eec9-47c8-9fe3-e92afe8a2b1b',
+        sid: '8d234fad-ceec-4f64-bb1b-1459c0b16cd7',
+        hotelId: null,
+        role: 'SUPER_ADMIN',
+      }),
+    ).toMatchObject({ hotelId: null, role: 'SUPER_ADMIN' });
   });
 });

@@ -2,10 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import {
-  jwtPayloadSchema,
-  type JwtPayload,
-} from '@quickdialog/auth/schemas/jwt-payload.schema.js';
+import { jwtPayloadSchema } from '@quickdialog/auth/schemas/jwt-payload.schema.js';
 import type { AuthenticatedUser } from '@quickdialog/auth/types/authenticated-user.type.js';
 
 @Injectable()
@@ -21,7 +18,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  validate(payload: JwtPayload): AuthenticatedUser {
+  validate(payload: unknown): AuthenticatedUser {
     const parsed = jwtPayloadSchema.safeParse(payload);
 
     if (!parsed.success) {

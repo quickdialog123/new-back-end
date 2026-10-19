@@ -12,6 +12,7 @@ import { GlobalExceptionFilter } from './common/errors/global-exception.filter.j
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { OriginGuard } from './common/guards/origin.guard.js';
+import { HotelModule } from './hotels/hotels.module.js';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { OriginGuard } from './common/guards/origin.guard.js';
     HealthModule,
     DatabaseModule,
     AuthModule,
+    HotelModule,
     LoggingModule,
   ],
   // Read this before start https://docs.nestjs.com/fundamentals/custom-providers
