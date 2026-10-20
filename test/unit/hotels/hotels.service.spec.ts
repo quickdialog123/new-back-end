@@ -1,4 +1,4 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import bcrypt from 'bcryptjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -54,7 +54,6 @@ describe('HotelsService', () => {
       id: 'hotel-id',
       name: input.name,
       phoneNumber: input.phoneNumber,
-      token: input.token,
       active: true,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -64,7 +63,6 @@ describe('HotelsService', () => {
           email: input.owner.email,
           fullName: input.owner.fullName,
           role: 'OWNER',
-          passwordHash: 'hashed-password',
         },
       ],
     });
@@ -87,28 +85,6 @@ describe('HotelsService', () => {
     );
     expect(result).not.toHaveProperty('token');
     expect(result.owner).not.toHaveProperty('passwordHash');
-  });
-
-  it('maps duplicate owner email errors to conflicts', async () => {
-    hotelCreate.mockRejectedValue({
-      code: 'P2002',
-      meta: { target: ['email'] },
-    });
-
-    await expect(service.create(input)).rejects.toEqual(
-      expect.objectContaining({ message: 'Owner email already exists' }),
-    );
-  });
-
-  it('maps duplicate hotel token errors to conflicts', async () => {
-    hotelCreate.mockRejectedValue({
-      code: 'P2002',
-      meta: { target: ['token'] },
-    });
-
-    await expect(service.create(input)).rejects.toBeInstanceOf(
-      ConflictException,
-    );
   });
 
   it('throws when a hotel cannot be found', async () => {

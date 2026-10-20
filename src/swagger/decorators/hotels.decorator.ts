@@ -58,7 +58,7 @@ export function ApiCreateHotelDocs() {
     }),
     ApiErrorResponse(
       HttpStatus.CONFLICT,
-      'Hotel token or owner email already exists',
+      'A record with this value already exists',
     ),
     ApiErrorResponse(HttpStatus.BAD_REQUEST, 'Request validation failed'),
   );
@@ -102,8 +102,11 @@ export function ApiUpdateHotelDocs() {
       status: HttpStatus.OK,
       schema: { ...hotelSwaggerSchema, example: hotelExample },
     }),
-    ApiErrorResponse(HttpStatus.NOT_FOUND, 'Hotel not found'),
-    ApiErrorResponse(HttpStatus.CONFLICT, 'Hotel token already exists'),
+    ApiErrorResponse(HttpStatus.NOT_FOUND, 'Record not found'),
+    ApiErrorResponse(
+      HttpStatus.CONFLICT,
+      'A record with this value already exists',
+    ),
   );
 }
 
@@ -113,12 +116,12 @@ export function ApiDeactivateHotelDocs() {
     hotelIdParam,
     ApiOperation({ summary: 'Deactivate a hotel' }),
     ApiResponse({
-      status: HttpStatus.CREATED,
+      status: HttpStatus.OK,
       schema: {
         ...hotelSwaggerSchema,
         example: { ...hotelExample, active: false },
       },
     }),
-    ApiErrorResponse(HttpStatus.NOT_FOUND, 'Hotel not found'),
+    ApiErrorResponse(HttpStatus.NOT_FOUND, 'Record not found'),
   );
 }

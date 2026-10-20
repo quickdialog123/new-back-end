@@ -274,6 +274,12 @@ describe('Hotels HTTP integration', () => {
 
     expect(duplicateToken.statusCode).toBe(409);
     expect(duplicateOwner.statusCode).toBe(409);
+    expect(duplicateToken.json()).toMatchObject({
+      message: 'A record with this value already exists',
+    });
+    expect(duplicateOwner.json()).toMatchObject({
+      message: 'A record with this value already exists',
+    });
   });
 
   it('returns 404 when a super admin requests a missing hotel', async () => {
@@ -286,5 +292,25 @@ describe('Hotels HTTP integration', () => {
     });
 
     expect(response.statusCode).toBe(404);
+  });
+
+  it('maps Prisma missing-record errors from hotel updates to 404', async () => {
+    const id = '5e4e8c68-31e1-4f35-a930-b5a5ba9d6b67';
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/api/hotels/${id}`,
+      headers: {
+        authorization: await authorizationFor('SUPER_ADMIN'),
+      },
+      payload: { name: 'Missing Hotel' },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toMatchObject({
+      statusCode: 404,
+      code: 'NOT_FOUND',
+      message: 'Record not found',
+      path: `/api/hotels/${id}`,
+    });
   });
 });

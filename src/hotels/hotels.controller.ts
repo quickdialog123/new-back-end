@@ -9,6 +9,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import type { z } from 'zod';
 
 import { Roles } from '@quickdialog/common/decorators/roles.decorator.js';
 import { UserRole } from '@quickdialog/generated/prisma/client.js';
@@ -48,14 +49,18 @@ export class HotelsController {
 
   @Get(':id')
   @ApiGetHotelDocs()
-  findOne(@Param({ schema: hotelIdParamSchema }) { id }: { id: string }) {
+  findOne(
+    @Param({ schema: hotelIdParamSchema })
+    { id }: z.infer<typeof hotelIdParamSchema>,
+  ) {
     return this.hotelsService.findOne(id);
   }
 
   @Patch(':id')
   @ApiUpdateHotelDocs()
   update(
-    @Param({ schema: hotelIdParamSchema }) { id }: { id: string },
+    @Param({ schema: hotelIdParamSchema })
+    { id }: z.infer<typeof hotelIdParamSchema>,
     @Body({ schema: updateHotelSchema }) input: UpdateHotelDTO,
   ) {
     return this.hotelsService.update(id, input);
@@ -64,7 +69,10 @@ export class HotelsController {
   @Post(':id/deactivate')
   @HttpCode(HttpStatus.OK)
   @ApiDeactivateHotelDocs()
-  deactivate(@Param({ schema: hotelIdParamSchema }) { id }: { id: string }) {
+  deactivate(
+    @Param({ schema: hotelIdParamSchema })
+    { id }: z.infer<typeof hotelIdParamSchema>,
+  ) {
     return this.hotelsService.deactivate(id);
   }
 }

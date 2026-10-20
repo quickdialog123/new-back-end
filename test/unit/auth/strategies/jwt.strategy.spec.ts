@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { JwtPayload } from '@quickdialog/auth/schemas/jwt-payload.schema.js';
 import { JwtStrategy } from '@quickdialog/auth/strategies/jwt.strategy.js';
 
 describe('JwtStrategy', () => {
@@ -74,7 +75,7 @@ describe('JwtStrategy', () => {
         sid: '8d234fad-ceec-4f64-bb1b-1459c0b16cd7',
         hotelId: null,
         role: 'OWNER',
-      }),
+      } as unknown as JwtPayload),
     ).toThrow(UnauthorizedException);
   });
 

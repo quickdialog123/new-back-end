@@ -1,4 +1,3 @@
-import { ConflictException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -88,9 +87,9 @@ describe('HotelsService integration', () => {
       },
     });
 
-    await expect(hotelsService.create(hotelInput)).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    await expect(hotelsService.create(hotelInput)).rejects.toMatchObject({
+      code: 'P2002',
+    });
     expect(await prisma.hotel.count()).toBe(1);
   });
 

@@ -9,6 +9,7 @@ import { HttpAdapterHost } from '@nestjs/core';
 import { PinoLogger } from 'nestjs-pino';
 
 import type { ApiErrorResponse } from './api-error-response.type.js';
+import { Prisma } from '@quickdialog/generated/prisma/client.js';
 
 type HttpExceptionBody = {
   code?: string;
@@ -30,14 +31,18 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const { httpAdapter } = this.adapterHost;
     const context = host.switchToHttp();
     const request = context.getRequest();
+    const handledException = this.mapPrismaException(exception);
 
-    const isHttpException = exception instanceof HttpException;
+    const isHttpException = handledException instanceof HttpException;
 
     const statusCode = isHttpException
-      ? exception.getStatus()
+      ? handledException.getStatus()
       : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const { code, message, details } = this.extractError(exception, statusCode);
+    const { code, message, details } = this.extractError(
+      handledException,
+      statusCode,
+    );
 
     const response: ApiErrorResponse = {
       statusCode,
@@ -61,7 +66,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (!isHttpException) {
       this.logger.error(
         {
-          err: exception,
+          err: handledException,
           requestId: request.id,
           method: httpAdapter.getRequestMethod(request),
           path: httpAdapter.getRequestUrl(request),
@@ -71,6 +76,31 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     httpAdapter.reply(context.getResponse(), response, statusCode);
+  }
+
+  private mapPrismaException(exception: unknown): unknown {
+    if (!this.isPrismaError(exception)) {
+      return exception;
+    }
+
+    if (exception.code === 'P2002') {
+      return new HttpException(
+        'A record with this value already exists',
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    if (exception.code === 'P2025') {
+      return new HttpException('Record not found', HttpStatus.NOT_FOUND);
+    }
+
+    return exception;
+  }
+
+  private isPrismaError(
+    exception: unknown,
+  ): exception is Prisma.PrismaClientKnownRequestError {
+    return exception instanceof Prisma.PrismaClientKnownRequestError;
   }
 
   private extractError(
