@@ -15,7 +15,6 @@ import { PinoLogger } from 'nestjs-pino';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { GlobalExceptionFilter } from '@quickdialog/common/errors/global-exception.filter.js';
-import { Prisma } from '@quickdialog/generated/prisma/client.js';
 
 describe('GlobalExceptionFilter', () => {
   let filter: GlobalExceptionFilter;
@@ -200,64 +199,6 @@ describe('GlobalExceptionFilter', () => {
 
       409,
     );
-  });
-
-  it('maps Prisma unique-constraint errors to conflicts', () => {
-    filter.catch(
-      new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
-        code: 'P2002',
-        clientVersion: '7.10.0',
-        meta: { target: ['email'] },
-      }),
-      host as never,
-    );
-
-    expect(reply).toHaveBeenCalledWith(
-      response,
-      expect.objectContaining({
-        statusCode: 409,
-        code: 'CONFLICT',
-        message: 'A record with this value already exists',
-      }),
-      409,
-    );
-    expect(logger.error).not.toHaveBeenCalled();
-  });
-
-  it('maps Prisma missing-record errors to not found', () => {
-    filter.catch(
-      new Prisma.PrismaClientKnownRequestError('Record not found', {
-        code: 'P2025',
-        clientVersion: '7.10.0',
-      }),
-      host as never,
-    );
-
-    expect(reply).toHaveBeenCalledWith(
-      response,
-      expect.objectContaining({
-        statusCode: 404,
-        code: 'NOT_FOUND',
-        message: 'Record not found',
-      }),
-      404,
-    );
-    expect(logger.error).not.toHaveBeenCalled();
-  });
-
-  it('does not treat a Prisma-shaped plain object as a Prisma error', () => {
-    filter.catch({ code: 'P2002' }, host as never);
-
-    expect(reply).toHaveBeenCalledWith(
-      response,
-      expect.objectContaining({
-        statusCode: 500,
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Internal server error',
-      }),
-      500,
-    );
-    expect(logger.error).toHaveBeenCalledOnce();
   });
 
   it('formats service unavailable exception', () => {
