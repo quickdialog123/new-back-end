@@ -12,6 +12,8 @@ import { GlobalExceptionFilter } from './common/errors/global-exception.filter.j
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { OriginGuard } from './common/guards/origin.guard.js';
+import { HotelModule } from './hotels/hotels.module.js';
+import { DatabaseExceptionFilter } from './common/errors/database-exception.filter.js';
 
 @Module({
   imports: [
@@ -30,6 +32,7 @@ import { OriginGuard } from './common/guards/origin.guard.js';
     HealthModule,
     DatabaseModule,
     AuthModule,
+    HotelModule,
     LoggingModule,
   ],
   // Read this before start https://docs.nestjs.com/fundamentals/custom-providers
@@ -41,6 +44,11 @@ import { OriginGuard } from './common/guards/origin.guard.js';
     {
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter, // mean normalize all uncaught exceptions globally
+    },
+    // Nest evaluates exception filters in reverse registration order.
+    {
+      provide: APP_FILTER,
+      useClass: DatabaseExceptionFilter,
     },
     {
       provide: APP_GUARD,

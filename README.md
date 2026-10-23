@@ -44,11 +44,19 @@ The project is intentionally kept as a modular monolith. Business features live 
 │   ├── common/
 │   │   ├── decorators/
 │   │   ├── errors/
+│   │   │   ├── database-exception.filter.ts
+│   │   │   ├── global-exception.filter.ts
+│   │   │   └── validation-exception.factory.ts
 │   │   ├── guards/
 │   │   └── logging/
 │   ├── config/
 │   ├── database/
 │   ├── health/
+│   ├── hotels/
+│   │   ├── schemas/
+│   │   ├── hotels.controller.ts
+│   │   ├── hotels.module.ts
+│   │   └── hotels.service.ts
 │   ├── swagger/
 │   │   ├── decorators/
 │   │   ├── examples/
@@ -71,7 +79,7 @@ The project is intentionally kept as a modular monolith. Business features live 
 The normal request path is:
 
 ```text
-HTTP request -> Fastify -> Global guards / validation -> Controller -> Service -> Prisma / external integration -> PostgreSQL
+HTTP request -> Fastify -> Global guards / Zod validation -> Controller -> Service -> Prisma / external integration -> PostgreSQL
 ```
 
 A few rules are intentional:
@@ -107,7 +115,7 @@ Access tokens are sent as bearer tokens:
 Authorization: Bearer <access-token>
 ```
 
-Refresh tokens are stored in an HttpOnly cookie and are not stored in plaintext in the database (hashed).
+Refresh tokens are stored in an HttpOnly cookie and are not stored in plaintext in the database.
 
 ### Access token behavior
 
@@ -115,9 +123,29 @@ Access tokens are stateless. Logging out revokes refresh sessions, but an alread
 
 Keep access-token TTL short for that reason.
 
+### JWT payload validation
+
+The JWT strategy verifies the token issuer, audience, expiration, and HS256 signature before validating the payload with Zod. Payloads require a non-empty `sub`, UUID `sid`, and a role-compatible `hotelId`: `SUPER_ADMIN` may have a nullable hotel ID, while all other roles require a UUID hotel ID. Invalid payloads receive a 401 response.
+
+## Hotels
+
+Hotel endpoints require the `SUPER_ADMIN` role. The following paths use the default `API_PREFIX=api`:
+
+- `POST /api/hotels` creates a hotel and its initial owner in one transaction.
+- `GET /api/hotels` lists hotels, including inactive hotels.
+- `GET /api/hotels/:id` retrieves one hotel.
+- `PATCH /api/hotels/:id` updates one or more hotel fields.
+- `POST /api/hotels/:id/deactivate` deactivates a hotel.
+
+Hotel IDs are UUIDs. Creating a hotel requires its name, phone number, token, and owner email, full name, and password. Updates require at least one of name, phone number, or token.
+
+Successful responses never include hotel tokens or owner password hashes. Deactivation is not a hard delete: it runs atomically, marks the hotel and its users inactive, and revokes active refresh sessions. It does not invalidate access JWTs that were already issued.
+
+There is no reactivation endpoint. `PATCH /api/hotels/:id` cannot change a hotel's `active` state.
+
 ## Validation
 
-Request validation uses Zod through Nest `StandardSchemaValidationPipe` (Build-in).
+Request validation uses Zod through Nest's built-in `StandardSchemaValidationPipe`.
 
 Example:
 
@@ -132,7 +160,7 @@ Environment variables are also validated before the application starts.
 
 ## Error responses
 
-`GlobalExceptionFilter` normalizes API errors into one response shape (uniform)
+All API errors use one response shape.
 
 Example:
 
@@ -148,6 +176,13 @@ Example:
 ```
 
 Validation errors may also contain `details`.
+
+Two global filters own the error handling responsibilities:
+
+- `DatabaseExceptionFilter` handles `PrismaClientKnownRequestError` only. It maps `P2002` to 409 conflict and `P2025` to 404 not found. Other Prisma known-request errors are logged and return a generic 500 response.
+- `GlobalExceptionFilter` handles HTTP exceptions, Zod-derived validation exceptions, and every exception that is not a Prisma known-request error.
+
+Both filters are registered through `APP_FILTER`. `DatabaseExceptionFilter` is registered after `GlobalExceptionFilter` because Nest evaluates global filters in reverse registration order, allowing Prisma errors to reach the database filter first.
 
 Unexpected exceptions are logged, while internal implementation details are not returned to the client.
 
@@ -170,7 +205,7 @@ Request IDs are included in logs and error responses so a request can be traced 
 
 ## Swagger
 
-Swagger is kept separate from controller logic
+Swagger is kept separate from controller logic.
 
 ```text
 src/swagger/
@@ -192,39 +227,19 @@ Controllers should use small composite decorators such as:
 
 instead of large blocks of Swagger decorators directly in controller methods.
 
-Swagger contribution rules are documented in: [[Guidelines](./src/swagger/README.md)]
+Swagger contribution rules are documented in [the Swagger guidelines](./src/swagger/README.md).
 
-When an API contract changes, update the implementation, validation, Swagger documentation and tests in the same PR.
+Hotel endpoints document their success, validation, authentication, authorization, conflict, and not-found responses. When an API contract changes, update the implementation, Zod validation, Swagger documentation, and tests in the same PR.
 
 ## Database and Prisma
 
-`DatabaseModule` exposes a single `PrismaService` dont DI is already have global injection.
+`DatabaseModule` is global and exports a single `PrismaService` for dependency injection.
 
 ```text
 Service -> PrismaService -> PrismaPg adapter -> PostgreSQL
 ```
 
-Prisma CLI and the running application can use separate database credentials.
-
-Recommended environment variables (Future):
-
-```env
-DATABASE_URL=postgresql://quickdialog_app:password@localhost:5432/quickdialog
-DIRECT_URL=postgresql://quickdialog_migrator:password@localhost:5432/quickdialog
-SHADOW_DATABASE_URL=postgresql://quickdialog_migrator:password@localhost:5432/quickdialog_shadow
-```
-
-Usage:
-
-```text
-DATABASE_URL -> NestJS runtime
-
-DIRECT_URL -> Prisma CLI / migrations
-
-SHADOW_DATABASE_URL -> prisma migrate dev only
-```
-
-Production normally needs only `DATABASE_URL` and `DIRECT_URL` (NOW WE USE ONLY `DATABASE_URL`)
+Prisma CLI and the running application use `DATABASE_URL`. The current Prisma configuration does not define `DIRECT_URL` or `SHADOW_DATABASE_URL`.
 
 Do not run development seeding against production
 
@@ -312,13 +327,14 @@ Swagger is mounted only when `SWAGGER_ENABLED=true`.
 
 The project uses Vitest.
 Unit tests cover isolated application behavior.
-Integration tests use a real PostgreSQL instance through Testcontainers and apply Prisma migrations before running.
+Integration tests use a real PostgreSQL instance through Testcontainers and apply Prisma migrations before running. The current suite covers authentication flows, hotel service and HTTP behavior, JWT validation, and both exception filters. Migration-specific tests are not part of the integration suite.
 
 Useful commands:
 
 ```bash
 pnpm test:unit
 pnpm test:integration
+pnpm test:all
 pnpm test:coverage
 ```
 
@@ -376,6 +392,7 @@ pnpm typecheck
 # tests
 pnpm test:unit
 pnpm test:integration
+pnpm test:all
 pnpm test:coverage
 
 # Prisma
