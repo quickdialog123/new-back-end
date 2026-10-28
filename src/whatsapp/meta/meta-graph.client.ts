@@ -5,7 +5,6 @@ import type {
   MetaAccessTokenResponse,
   MetaClientBusinessResponse,
   MetaPhoneNumbersResponse,
-  MetaSendMessageResponse,
 } from './meta.types.js';
 
 @Injectable()
@@ -83,34 +82,5 @@ export class MetaGraphClient {
         authorization: `Bearer ${accessToken}`,
       },
     });
-  }
-
-  async sendText(
-    phoneNumberId: string,
-    accessToken: string,
-    to: string,
-    message: string,
-  ): Promise<MetaSendMessageResponse> {
-    const version = this.config.getOrThrow<string>('meta.graphVersion');
-
-    const { data } = await this.http.post<MetaSendMessageResponse>(
-      `/${version}/${phoneNumberId}/messages`,
-      {
-        headers: {
-          authorization: `Bearer ${accessToken}`,
-        },
-        json: {
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to,
-          type: 'text',
-          text: {
-            body: message,
-          },
-        },
-      },
-    );
-
-    return data;
   }
 }

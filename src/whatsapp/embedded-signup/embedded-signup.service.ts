@@ -3,7 +3,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-
 import { PrismaService } from '@quickdialog/database/prisma.service.js';
 import { MetaGraphClient } from '../meta/meta-graph.client.js';
 import type { CompleteEmbeddedSignupDto } from './schemas/complete-embedded-signup.schema.js';

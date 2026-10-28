@@ -7,7 +7,7 @@ CREATE TABLE "WhatsAppAccount" (
     "businessId" TEXT,
     "displayPhoneNumber" TEXT,
     "verifiedName" TEXT,
-    "accessTokenEncrypted" TEXT NOT NULL,
+    "accessTokenEncrypted" TEXT,
     "status" TEXT NOT NULL DEFAULT 'CONNECTED',
     "connectedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
