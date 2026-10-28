@@ -47,11 +47,7 @@ export const envSchema = z.object({
     .regex(/^v\d+\.\d+$/, 'META_GRAPH_VERSION must look like v24.0'),
   META_APP_ID: z.string().min(1),
   META_APP_SECRET: z.string().min(1),
-  META_SYSTEM_USER_TOKEN: z.string().min(1),
   META_TOKEN_ENCRYPTION_KEY: z.string().min(1),
-  META_TEST_ACCESS_TOKEN: z.string().min(1),
-  META_TEST_PHONE_NUMBER_ID: z.string().min(1),
-  META_TEST_WABA_ID: z.string().min(1),
   META_WEBHOOK_VERIFY_TOKEN: z.string().min(32),
   META_EMBEDDED_SIGNUP_CONFIG_ID: z.string().min(1),
 });

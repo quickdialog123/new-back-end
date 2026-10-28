@@ -4,9 +4,7 @@ const ALGORITHM = 'aes-256-gcm';
 
 export function encryptMetaToken(token: string, key: string): string {
   const encryptionKey = Buffer.from(key, 'base64');
-
   const iv = randomBytes(12);
-
   const cipher = createCipheriv(ALGORITHM, encryptionKey, iv);
 
   const encrypted = Buffer.concat([
@@ -25,7 +23,6 @@ export function encryptMetaToken(token: string, key: string): string {
 
 export function decryptMetaToken(value: string, key: string): string {
   const encryptionKey = Buffer.from(key, 'base64');
-
   const [iv, tag, encrypted] = value.split('.');
 
   const decipher = createDecipheriv(

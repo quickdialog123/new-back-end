@@ -11,7 +11,6 @@ export type MetaPhoneNumber = {
   id: string;
   display_phone_number?: string;
   verified_name?: string;
-
   status?: string;
   code_verification_status?: string;
   name_status?: string;
