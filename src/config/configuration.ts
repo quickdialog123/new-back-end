@@ -46,6 +46,8 @@ export default () => ({
     graphVersion: process.env.META_GRAPH_VERSION,
     appId: process.env.META_APP_ID,
     appSecret: process.env.META_APP_SECRET,
+    tokenEncryptionKey: process.env.META_TOKEN_ENCRYPTION_KEY,
+    systemUserToken: process.env.META_SYSTEM_USER_TOKEN,
 
     test: {
       accessToken: process.env.META_TEST_ACCESS_TOKEN,

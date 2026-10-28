@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { HttpClientModule } from '@nestjs/http-client';
 
+import { EmbeddedSignupController } from './embedded-signup/embedded-signup.controller.js';
+import { EmbeddedSignupService } from './embedded-signup/embedded-signup.service.js';
 import { MetaGraphClient } from './meta/meta-graph.client.js';
 import { WhatsappController } from './whatsapp.controller.js';
 import { WebhookController } from './webhooks/webhook.controller.js';
@@ -14,9 +16,17 @@ import { WebhookSignatureGuard } from './webhooks/webhook-signature.guard.js';
       timeout: '10s',
     }),
   ],
-
-  controllers: [WhatsappController, WebhookController],
-  providers: [MetaGraphClient, WebhookService, WebhookSignatureGuard],
+  controllers: [
+    WhatsappController,
+    EmbeddedSignupController,
+    WebhookController,
+  ],
+  providers: [
+    MetaGraphClient,
+    EmbeddedSignupService,
+    WebhookService,
+    WebhookSignatureGuard,
+  ],
   exports: [MetaGraphClient],
 })
 export class WhatsappModule {}
