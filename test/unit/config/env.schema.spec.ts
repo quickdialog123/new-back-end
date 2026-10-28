@@ -31,6 +31,18 @@ const validEnv = {
   AUTH_SESSION_MAX_TTL: '30d',
 
   SWAGGER_ENABLED: 'false',
+
+  META_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32).toString('base64'),
+
+  META_GRAPH_VERSION: 'v26.0',
+
+  META_APP_ID: '1234',
+
+  META_APP_SECRET: 'secret_fb',
+
+  META_WEBHOOK_VERIFY_TOKEN: 'webhook-verify-token-at-least-32-characters',
+
+  META_EMBEDDED_SIGNUP_CONFIG_ID: '99182',
 };
 
 describe('envSchema', () => {
@@ -101,6 +113,13 @@ describe('envSchema', () => {
       JWT_ISSUER: 'quickdialog-api',
 
       JWT_AUDIENCE: 'quickdialog-web',
+
+      META_GRAPH_VERSION: 'v26.0',
+      META_APP_ID: '1234',
+      META_APP_SECRET: 'secret_fb',
+      META_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32).toString('base64'),
+      META_WEBHOOK_VERIFY_TOKEN: 'webhook-verify-token-at-least-32-characters',
+      META_EMBEDDED_SIGNUP_CONFIG_ID: '99182',
     });
 
     expect(result.NODE_ENV).toBe('development');
