@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -40,5 +41,20 @@ describe('EmbeddedSignupController', () => {
       'hotel-id',
       input,
     );
+  });
+
+  it('rejects completion without a hotel context', () => {
+    expect(() =>
+      controller.complete(
+        {
+          userId: 'user-id',
+          sessionId: 'session-id',
+          hotelId: null,
+          role: 'OWNER',
+        } as never,
+        { code: 'code', wabaId: 'waba-id', phoneNumberId: 'phone-id' },
+      ),
+    ).toThrow(BadRequestException);
+    expect(embeddedSignupService.complete).not.toHaveBeenCalled();
   });
 });

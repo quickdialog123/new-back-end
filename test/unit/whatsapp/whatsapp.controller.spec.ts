@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -40,6 +41,19 @@ describe('WhatsappController', () => {
     });
     expect(whatsappService.getStatus).toHaveBeenCalledWith('hotel-id');
     expect(whatsappService.disconnect).toHaveBeenCalledWith('hotel-id');
+  });
+
+  it('rejects users without a hotel context', () => {
+    const userWithoutHotel = { ...user, hotelId: null };
+
+    expect(() => controller.getStatus(userWithoutHotel as never)).toThrow(
+      BadRequestException,
+    );
+    expect(() => controller.disconnect(userWithoutHotel as never)).toThrow(
+      BadRequestException,
+    );
+    expect(whatsappService.getStatus).not.toHaveBeenCalled();
+    expect(whatsappService.disconnect).not.toHaveBeenCalled();
   });
 
   it('restricts status and disconnect to hotel owners', () => {

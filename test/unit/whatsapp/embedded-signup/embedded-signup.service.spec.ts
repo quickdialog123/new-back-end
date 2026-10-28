@@ -1,3 +1,4 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -93,5 +94,56 @@ describe('EmbeddedSignupService', () => {
       input.wabaId,
       'raw-meta-token',
     );
+  });
+
+  it('rejects a missing hotel before calling Meta', async () => {
+    hotelFindUnique.mockResolvedValue(null);
+
+    await expect(
+      service.complete('missing-hotel', {
+        code: 'signup-code',
+        wabaId: 'waba-id',
+        phoneNumberId: 'phone-id',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(meta.exchangeCode).not.toHaveBeenCalled();
+  });
+
+  it('requires the current account to be disconnected before switching accounts', async () => {
+    hotelFindUnique.mockResolvedValue({ id: 'hotel-id' });
+    accountFindFirst.mockResolvedValue({
+      id: 'account-id',
+      hotelId: 'hotel-id',
+      wabaId: 'current-waba-id',
+      phoneNumberId: 'current-phone-id',
+      status: 'CONNECTED',
+    });
+
+    await expect(
+      service.complete('hotel-id', {
+        code: 'signup-code',
+        wabaId: 'waba-id',
+        phoneNumberId: 'phone-id',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(meta.exchangeCode).not.toHaveBeenCalled();
+  });
+
+  it('rejects a selected phone number that Meta does not return', async () => {
+    hotelFindUnique.mockResolvedValue({ id: 'hotel-id' });
+    accountFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    meta.exchangeCode.mockResolvedValue('raw-meta-token');
+    meta.getClientBusinessId.mockResolvedValue('business-id');
+    meta.getPhoneNumbers.mockResolvedValue([]);
+
+    await expect(
+      service.complete('hotel-id', {
+        code: 'signup-code',
+        wabaId: 'waba-id',
+        phoneNumberId: 'phone-id',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(meta.subscribeApp).not.toHaveBeenCalled();
+    expect(accountCreate).not.toHaveBeenCalled();
   });
 });

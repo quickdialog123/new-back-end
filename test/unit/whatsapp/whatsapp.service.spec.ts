@@ -57,6 +57,21 @@ describe('WhatsappService', () => {
     });
   });
 
+  it('maps an unexpected active account status to error', async () => {
+    findFirst.mockResolvedValue({
+      status: 'ERROR',
+      wabaId: 'waba-id',
+      displayPhoneNumber: null,
+      verifiedName: null,
+      connectedAt: new Date('2026-10-28T12:00:00.000Z'),
+    });
+
+    await expect(service.getStatus('hotel-id')).resolves.toMatchObject({
+      status: 'error',
+      wabaId: 'waba-id',
+    });
+  });
+
   it('disconnects by wiping the encrypted token while retaining the account', async () => {
     findFirst.mockResolvedValue({ id: 'account-id' });
 
@@ -74,5 +89,21 @@ describe('WhatsappService', () => {
       where: { id: 'account-id' },
       data: { status: 'DISCONNECTED', accessTokenEncrypted: null },
     });
+  });
+
+  it('does not update when there is no active account to disconnect', async () => {
+    findFirst.mockResolvedValue(null);
+
+    await expect(service.disconnect('hotel-id')).resolves.toEqual({
+      status: 'not_connected',
+      wabaId: null,
+      phoneNumber: null,
+      displayName: null,
+      wabaStatus: null,
+      qualityRating: null,
+      connectedAt: null,
+      errorMessage: null,
+    });
+    expect(update).not.toHaveBeenCalled();
   });
 });
