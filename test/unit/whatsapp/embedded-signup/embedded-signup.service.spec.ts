@@ -146,4 +146,81 @@ describe('EmbeddedSignupService', () => {
     expect(meta.subscribeApp).not.toHaveBeenCalled();
     expect(accountCreate).not.toHaveBeenCalled();
   });
+
+  it('rejects accounts that are connected to another hotel', async () => {
+    hotelFindUnique.mockResolvedValue({ id: 'hotel-id' });
+    accountFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: 'account-id',
+      hotelId: 'other-hotel-id',
+      wabaId: 'waba-id',
+      phoneNumberId: 'phone-id',
+    });
+
+    await expect(
+      service.complete('hotel-id', {
+        code: 'signup-code',
+        wabaId: 'waba-id',
+        phoneNumberId: 'phone-id',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(meta.exchangeCode).not.toHaveBeenCalled();
+    expect(accountCreate).not.toHaveBeenCalled();
+    expect(accountUpdate).not.toHaveBeenCalled();
+  });
+
+  it('rejects mismatched identifiers on a disconnected hotel account', async () => {
+    hotelFindUnique.mockResolvedValue({ id: 'hotel-id' });
+    accountFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: 'account-id',
+      hotelId: 'hotel-id',
+      wabaId: 'other-waba-id',
+      phoneNumberId: 'phone-id',
+      status: 'DISCONNECTED',
+    });
+
+    await expect(
+      service.complete('hotel-id', {
+        code: 'signup-code',
+        wabaId: 'waba-id',
+        phoneNumberId: 'phone-id',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(meta.exchangeCode).not.toHaveBeenCalled();
+  });
+
+  it('creates a new account with only an encrypted token', async () => {
+    const input = {
+      code: 'signup-code',
+      wabaId: 'waba-id',
+      phoneNumberId: 'phone-id',
+    };
+    hotelFindUnique.mockResolvedValue({ id: 'hotel-id' });
+    accountFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    meta.exchangeCode.mockResolvedValue('raw-meta-token');
+    meta.getClientBusinessId.mockResolvedValue('business-id');
+    meta.getPhoneNumbers.mockResolvedValue([
+      {
+        id: input.phoneNumberId,
+        display_phone_number: '+15551234567',
+        verified_name: 'QuickDialog Hotel',
+      },
+    ]);
+    accountCreate.mockResolvedValue({ hotelId: 'hotel-id' });
+    whatsappService.getStatus.mockResolvedValue({ status: 'connected' });
+
+    await expect(service.complete('hotel-id', input)).resolves.toEqual({
+      status: 'connected',
+    });
+    expect(accountUpdate).not.toHaveBeenCalled();
+    expect(accountCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        hotelId: 'hotel-id',
+        businessId: 'business-id',
+        accessTokenEncrypted: expect.any(String),
+      }),
+    });
+    const createData = accountCreate.mock.calls[0]?.[0].data;
+    expect(createData).not.toHaveProperty('accessToken');
+    expect(createData.accessTokenEncrypted).not.toBe('raw-meta-token');
+  });
 });

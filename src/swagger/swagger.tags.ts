@@ -10,6 +10,9 @@ export const SWAGGER_TAGS = {
     WEBHOOK: {
       ROOT: 'Whatsapp / Webhook',
     },
+    EMBEDDED_SIGNUP: {
+      ROOT: 'Whatsapp / Embedded Signup',
+    },
   },
 } as const;
 
@@ -17,7 +20,7 @@ export function buildNestedTags(document: OpenAPIObject): void {
   const separator = ' / ';
   const tagNames = new Set<string>();
 
-  for (const path of Object.values(document.paths)) {
+  for (const path of Object.values(document.paths ?? {})) {
     if (!path) continue;
 
     for (const operation of Object.values(path)) {

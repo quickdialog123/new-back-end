@@ -4,6 +4,10 @@ import { CurrentUser } from '@quickdialog/common/decorators/current-user.decorat
 import { Roles } from '@quickdialog/common/decorators/roles.decorator.js';
 import type { AuthenticatedUser } from '@quickdialog/auth/types/authenticated-user.type.js';
 import { UserRole } from '@quickdialog/generated/prisma/client.js';
+import {
+  ApiDisconnectWhatsAppDocs,
+  ApiWhatsAppStatusDocs,
+} from '@quickdialog/swagger/decorators/whatsapp.decorator.js';
 import { SWAGGER_TAGS } from '@quickdialog/swagger/swagger.tags.js';
 import { WhatsappService } from './whatsapp.service.js';
 import { MetaGraphClient } from './meta/meta-graph.client.js';
@@ -18,12 +22,14 @@ export class WhatsappController {
 
   @Get('status')
   @Roles(UserRole.OWNER)
+  @ApiWhatsAppStatusDocs()
   getStatus(@CurrentUser() user: AuthenticatedUser) {
     return this.whatsappService.getStatus(this.hotelId(user));
   }
 
   @Post('disconnect')
   @Roles(UserRole.OWNER)
+  @ApiDisconnectWhatsAppDocs()
   disconnect(@CurrentUser() user: AuthenticatedUser) {
     return this.whatsappService.disconnect(this.hotelId(user));
   }
