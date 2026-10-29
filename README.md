@@ -57,6 +57,23 @@ The project is intentionally kept as a modular monolith. Business features live 
 │   │   ├── hotels.controller.ts
 │   │   ├── hotels.module.ts
 │   │   └── hotels.service.ts
+│   ├── whatsapp/
+│   │   ├── embedded-signup/
+│   │   │   ├── schemas/
+│   │   │   ├── embedded-signup.controller.ts
+│   │   │   └── embedded-signup.service.ts
+│   │   ├── meta/
+│   │   │   ├── meta-graph.client.ts
+│   │   │   ├── meta-token.util.ts
+│   │   │   └── meta.types.ts
+│   │   ├── webhooks/
+│   │   │   ├── webhook-signature.guard.ts
+│   │   │   ├── webhook.controller.ts
+│   │   │   ├── webhook.service.ts
+│   │   │   └── webhook.types.ts
+│   │   ├── whatsapp.controller.ts
+│   │   ├── whatsapp.module.ts
+│   │   └── whatsapp.service.ts
 │   ├── swagger/
 │   │   ├── decorators/
 │   │   ├── examples/
@@ -283,6 +300,13 @@ SWAGGER_ENABLED=true
 SWAGGER_PATH=docs
 
 LOG_LEVEL=debug
+
+META_GRAPH_VERSION=v26.0
+META_APP_ID=
+META_APP_SECRET=
+META_TOKEN_ENCRYPTION_KEY=
+META_EMBEDDED_SIGNUP_CONFIG_ID=
+META_WEBHOOK_VERIFY_TOKEN=
 ```
 
 Keep real secrets out of Git.

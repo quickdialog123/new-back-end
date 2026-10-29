@@ -31,6 +31,14 @@ export async function setup() {
   process.env.CORS_ORIGIN = 'http://localhost:3000';
 
   process.env.API_PREFIX = 'api';
+  process.env.META_GRAPH_VERSION = 'v26.0';
+  process.env.META_APP_ID = 'integration-meta-app-id';
+  process.env.META_APP_SECRET = 'integration-meta-app-secret';
+  process.env.META_TOKEN_ENCRYPTION_KEY = Buffer.alloc(32).toString('base64');
+  process.env.META_WEBHOOK_VERIFY_TOKEN =
+    'integration-webhook-verify-token-at-least-32-characters';
+  process.env.META_EMBEDDED_SIGNUP_CONFIG_ID =
+    'integration-embedded-signup-config-id';
 
   execSync('pnpm prisma migrate deploy', {
     env: {

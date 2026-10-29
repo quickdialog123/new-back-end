@@ -15,6 +15,7 @@ export default defineConfig({
         'src/generated/**',
         'src/**/*.module.ts',
         'src/swagger/**',
+        'src/**/*.types.ts',
       ],
       thresholds: {
         statements: 80,

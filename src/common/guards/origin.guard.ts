@@ -5,22 +5,36 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Reflector } from '@nestjs/core';
 import type { FastifyRequest } from 'fastify';
+import { SKIP_ORIGIN_CHECK_KEY } from '../decorators/skip-origin-check.decorator.js';
 
 @Injectable()
 export class OriginGuard implements CanActivate {
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly reflector: Reflector,
+  ) {}
 
   canActivate(context: ExecutionContext): boolean {
-    if (this.config.getOrThrow<string>('app.nodeEnv') !== 'production') {
+    const skipOriginCheck = this.reflector.getAllAndOverride<boolean>(
+      SKIP_ORIGIN_CHECK_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+
+    if (skipOriginCheck) {
       return true;
     }
+
+    // dev testing
+    // if (this.config.getOrThrow<string>('app.nodeEnv') !== 'production') {
+    //   return true;
+    // }
 
     const request = context.switchToHttp().getRequest<FastifyRequest>();
 
     const origin = request.headers.origin;
 
-    // Allow non-browser/server-to-server requests (if need to test it)
     if (!origin) {
       return false;
     }

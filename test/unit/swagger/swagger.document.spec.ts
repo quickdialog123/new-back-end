@@ -11,7 +11,13 @@ import { AuthController } from '@quickdialog/auth/auth.controller.js';
 import { AuthService } from '@quickdialog/auth/auth.service.js';
 import { HealthController } from '@quickdialog/health/health.controller.js';
 import { HealthService } from '@quickdialog/health/health.service.js';
+import { EmbeddedSignupController } from '@quickdialog/whatsapp/embedded-signup/embedded-signup.controller.js';
+import { EmbeddedSignupService } from '@quickdialog/whatsapp/embedded-signup/embedded-signup.service.js';
+import { MetaGraphClient } from '@quickdialog/whatsapp/meta/meta-graph.client.js';
+import { WhatsappController } from '@quickdialog/whatsapp/whatsapp.controller.js';
+import { WhatsappService } from '@quickdialog/whatsapp/whatsapp.service.js';
 import { createSwaggerConfig } from '@quickdialog/swagger/swagger.config.js';
+import { buildNestedTags } from '@quickdialog/swagger/swagger.tags.js';
 
 describe('Swagger API contract', () => {
   let app: NestFastifyApplication;
@@ -23,10 +29,18 @@ describe('Swagger API contract', () => {
     } as unknown as ConfigService;
 
     const moduleRef = await Test.createTestingModule({
-      controllers: [AuthController, HealthController],
+      controllers: [
+        AuthController,
+        HealthController,
+        WhatsappController,
+        EmbeddedSignupController,
+      ],
       providers: [
         { provide: AuthService, useValue: {} },
         { provide: HealthService, useValue: {} },
+        { provide: WhatsappService, useValue: {} },
+        { provide: EmbeddedSignupService, useValue: {} },
+        { provide: MetaGraphClient, useValue: {} },
         { provide: ConfigService, useValue: config },
       ],
     }).compile();
@@ -38,6 +52,7 @@ describe('Swagger API contract', () => {
     await app.init();
 
     document = SwaggerModule.createDocument(app, createSwaggerConfig(config));
+    buildNestedTags(document);
   });
 
   afterAll(async () => {
@@ -160,5 +175,84 @@ describe('Swagger API contract', () => {
     });
     expect(logout.responses).toHaveProperty('204');
     expect(logoutAll.responses).toHaveProperty('204');
+  });
+
+  it('documents protected WhatsApp lifecycle operations', () => {
+    const status = document.paths['/api/whatsapp/status'].get!;
+    const disconnect = document.paths['/api/whatsapp/disconnect'].post!;
+    const complete =
+      document.paths['/api/whatsapp/embedded-signup/complete'].post!;
+
+    for (const operation of [status, disconnect, complete]) {
+      expect(operation.security).toEqual([{ 'access-token': [] }]);
+      expect(operation.responses).toHaveProperty('401');
+      expect(operation.responses).toHaveProperty('403');
+      expect(operation.responses).toHaveProperty('429');
+    }
+
+    expect(status).toMatchObject({
+      tags: ['Whatsapp'],
+      summary: 'Get WhatsApp connection status',
+      responses: {
+        200: {
+          content: {
+            'application/json': {
+              schema: {
+                required: [
+                  'status',
+                  'wabaId',
+                  'phoneNumber',
+                  'displayName',
+                  'wabaStatus',
+                  'qualityRating',
+                  'connectedAt',
+                  'errorMessage',
+                ],
+                properties: {
+                  status: {
+                    enum: ['connected', 'not_connected', 'error'],
+                  },
+                  connectedAt: { format: 'date-time', nullable: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(status.responses).toHaveProperty('400');
+    expect(disconnect).toMatchObject({
+      tags: ['Whatsapp'],
+      summary: 'Disconnect WhatsApp',
+      responses: { 201: status.responses['200'] },
+    });
+    expect(disconnect.responses).toHaveProperty('400');
+    expect(complete).toMatchObject({
+      tags: ['Whatsapp / Embedded Signup'],
+      summary: 'Complete WhatsApp Embedded Signup',
+      responses: { 201: status.responses['200'] },
+      requestBody: {
+        content: {
+          'application/json': {
+            schema: {
+              required: ['code', 'wabaId', 'phoneNumberId'],
+              properties: {
+                code: { minLength: 1 },
+                wabaId: { minLength: 1 },
+                phoneNumberId: { minLength: 1 },
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(complete.responses).toHaveProperty('201');
+    expect(complete.responses).toHaveProperty('400');
+    expect(complete.responses).toHaveProperty('404');
+    expect(document.tags).toContainEqual({
+      name: 'Whatsapp / Embedded Signup',
+      summary: 'Embedded Signup',
+      parent: 'Whatsapp',
+    });
   });
 });

@@ -111,6 +111,13 @@ describe('Hotels HTTP integration', () => {
     return `Bearer ${accessToken}`;
   }
 
+  function headers(authorization: string) {
+    return {
+      authorization,
+      origin: 'http://localhost:3000',
+    };
+  }
+
   function expectSafeHotelResponse(response: HotelResponse | HotelResponse[]) {
     const hotels = Array.isArray(response) ? response : [response];
 
@@ -133,9 +140,7 @@ describe('Hotels HTTP integration', () => {
     const response = await app.inject({
       method: 'GET',
       url: '/api/hotels',
-      headers: {
-        authorization: await authorizationFor('OWNER'),
-      },
+      headers: headers(await authorizationFor('OWNER')),
     });
 
     expect(response.statusCode).toBe(403);
@@ -147,7 +152,7 @@ describe('Hotels HTTP integration', () => {
     const created = await app.inject({
       method: 'POST',
       url: '/api/hotels',
-      headers: { authorization },
+      headers: headers(authorization),
       payload: hotelInput,
     });
 
@@ -168,7 +173,7 @@ describe('Hotels HTTP integration', () => {
     const listed = await app.inject({
       method: 'GET',
       url: '/api/hotels',
-      headers: { authorization },
+      headers: headers(authorization),
     });
 
     expect(listed.statusCode).toBe(200);
@@ -180,7 +185,7 @@ describe('Hotels HTTP integration', () => {
     const fetched = await app.inject({
       method: 'GET',
       url: `/api/hotels/${createdHotel.id}`,
-      headers: { authorization },
+      headers: headers(authorization),
     });
 
     expect(fetched.statusCode).toBe(200);
@@ -189,7 +194,7 @@ describe('Hotels HTTP integration', () => {
     const updated = await app.inject({
       method: 'PATCH',
       url: `/api/hotels/${createdHotel.id}`,
-      headers: { authorization },
+      headers: headers(authorization),
       payload: { name: 'Renamed Grand Hotel' },
     });
 
@@ -203,7 +208,7 @@ describe('Hotels HTTP integration', () => {
     const deactivated = await app.inject({
       method: 'POST',
       url: `/api/hotels/${createdHotel.id}/deactivate`,
-      headers: { authorization },
+      headers: headers(authorization),
     });
 
     expect(deactivated.statusCode).toBe(200);
@@ -226,13 +231,13 @@ describe('Hotels HTTP integration', () => {
     const invalidBody = await app.inject({
       method: 'POST',
       url: '/api/hotels',
-      headers: { authorization },
+      headers: headers(authorization),
       payload: { name: '' },
     });
     const invalidId = await app.inject({
       method: 'GET',
       url: '/api/hotels/not-a-uuid',
-      headers: { authorization },
+      headers: headers(authorization),
     });
 
     expect(invalidBody.statusCode).toBe(400);
@@ -247,7 +252,7 @@ describe('Hotels HTTP integration', () => {
         await app.inject({
           method: 'POST',
           url: '/api/hotels',
-          headers: { authorization },
+          headers: headers(authorization),
           payload: hotelInput,
         })
       ).statusCode,
@@ -256,7 +261,7 @@ describe('Hotels HTTP integration', () => {
     const duplicateToken = await app.inject({
       method: 'POST',
       url: '/api/hotels',
-      headers: { authorization },
+      headers: headers(authorization),
       payload: {
         ...hotelInput,
         owner: { ...hotelInput.owner, email: 'different-owner@example.com' },
@@ -265,7 +270,7 @@ describe('Hotels HTTP integration', () => {
     const duplicateOwner = await app.inject({
       method: 'POST',
       url: '/api/hotels',
-      headers: { authorization },
+      headers: headers(authorization),
       payload: {
         ...hotelInput,
         token: 'different-hotel-token',
@@ -286,9 +291,7 @@ describe('Hotels HTTP integration', () => {
     const response = await app.inject({
       method: 'GET',
       url: '/api/hotels/5e4e8c68-31e1-4f35-a930-b5a5ba9d6b67',
-      headers: {
-        authorization: await authorizationFor('SUPER_ADMIN'),
-      },
+      headers: headers(await authorizationFor('SUPER_ADMIN')),
     });
 
     expect(response.statusCode).toBe(404);
@@ -299,9 +302,7 @@ describe('Hotels HTTP integration', () => {
     const response = await app.inject({
       method: 'PATCH',
       url: `/api/hotels/${id}`,
-      headers: {
-        authorization: await authorizationFor('SUPER_ADMIN'),
-      },
+      headers: headers(await authorizationFor('SUPER_ADMIN')),
       payload: { name: 'Missing Hotel' },
     });
 
