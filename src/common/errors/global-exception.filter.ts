@@ -30,7 +30,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const { httpAdapter } = this.adapterHost;
     const context = host.switchToHttp();
     const request = context.getRequest();
-
     const isHttpException = exception instanceof HttpException;
 
     const statusCode = isHttpException

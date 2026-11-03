@@ -1,3 +1,4 @@
+import { WhatsappModule } from './whatsapp/whatsapp.module.js';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { LoggingModule } from './common/logging/logging.module.js';
 import { Module } from '@nestjs/common';
@@ -12,6 +13,8 @@ import { GlobalExceptionFilter } from './common/errors/global-exception.filter.j
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { OriginGuard } from './common/guards/origin.guard.js';
+import { HotelModule } from './hotels/hotels.module.js';
+import { DatabaseExceptionFilter } from './common/errors/database-exception.filter.js';
 
 @Module({
   imports: [
@@ -30,7 +33,9 @@ import { OriginGuard } from './common/guards/origin.guard.js';
     HealthModule,
     DatabaseModule,
     AuthModule,
+    HotelModule,
     LoggingModule,
+    WhatsappModule,
   ],
   // Read this before start https://docs.nestjs.com/fundamentals/custom-providers
   providers: [
@@ -41,6 +46,11 @@ import { OriginGuard } from './common/guards/origin.guard.js';
     {
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter, // mean normalize all uncaught exceptions globally
+    },
+    // Nest evaluates exception filters in reverse registration order.
+    {
+      provide: APP_FILTER,
+      useClass: DatabaseExceptionFilter,
     },
     {
       provide: APP_GUARD,

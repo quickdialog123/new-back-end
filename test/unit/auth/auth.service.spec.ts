@@ -20,8 +20,12 @@ const user = {
   passwordHash: 'hashed-password',
   fullName: 'Owner',
   role: 'OWNER' as const,
-  hotelId: null,
+  hotelId: 'c5497c67-4e65-4644-bbb9-e9fb40f76627',
   active: true,
+  hotel: {
+    id: 'c5497c67-4e65-4644-bbb9-e9fb40f76627',
+    active: true,
+  },
   lastLoginAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -136,6 +140,9 @@ describe('AuthService', () => {
         where: {
           email: user.email,
         },
+        include: {
+          hotel: true,
+        },
       });
 
       expect(userUpdate).toHaveBeenCalledWith({
@@ -173,7 +180,7 @@ describe('AuthService', () => {
 
         sid: '8d234fad-ceec-4f64-bb1b-1459c0b16cd7',
 
-        hotelId: null,
+        hotelId: 'c5497c67-4e65-4644-bbb9-e9fb40f76627',
 
         role: 'OWNER',
       });
@@ -233,6 +240,50 @@ describe('AuthService', () => {
           metadata,
         ),
       ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('rejects a hotel-bound user with no hotel or an inactive hotel', async () => {
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+
+      userFindUnique.mockResolvedValueOnce({ ...user, hotel: null });
+      await expect(
+        service.login(
+          { email: user.email, password: 'Password123!' },
+          metadata,
+        ),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+
+      userFindUnique.mockResolvedValueOnce({
+        ...user,
+        hotel: { ...user.hotel, active: false },
+      });
+      await expect(
+        service.login(
+          { email: user.email, password: 'Password123!' },
+          metadata,
+        ),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('allows a super admin with no hotel', async () => {
+      userFindUnique.mockResolvedValue({
+        ...user,
+        role: 'SUPER_ADMIN',
+        hotelId: null,
+        hotel: null,
+      });
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+      sessionCreate.mockResolvedValue({ id: 'super-admin-session-id' });
+
+      await expect(
+        service.login(
+          { email: user.email, password: 'Password123!' },
+          metadata,
+        ),
+      ).resolves.toEqual({
+        accessToken: 'access-token',
+        refreshToken: expect.any(String),
+      });
     });
   });
 
@@ -418,6 +469,26 @@ describe('AuthService', () => {
         data: {
           revokedAt: expect.any(Date),
         },
+      });
+    });
+
+    it('revokes the family when a hotel-bound user loses their hotel access', async () => {
+      sessionFindUnique.mockResolvedValue({
+        ...currentSession,
+        user: { ...user, hotel: null },
+      });
+      sessionUpdateMany.mockResolvedValue({ count: 1 });
+
+      await expect(
+        service.refresh('missing-hotel-token', metadata),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+
+      expect(sessionUpdateMany).toHaveBeenCalledWith({
+        where: {
+          familyId: currentSession.familyId,
+          revokedAt: null,
+        },
+        data: { revokedAt: expect.any(Date) },
       });
     });
 

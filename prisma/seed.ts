@@ -20,12 +20,31 @@ async function main() {
 
   const passwordHash = await bcrypt.hash('Password123!', 12);
 
+  const hotel = await prisma.hotel.upsert({
+    where: {
+      token: 'quickdialog-dev',
+    },
+
+    update: {
+      name: 'QuickDialog Development Hotel',
+      phoneNumber: '+1 555 010 0000',
+    },
+
+    create: {
+      name: 'QuickDialog Development Hotel',
+      phoneNumber: '+1 555 010 0000',
+      token: 'quickdialog-dev',
+    },
+  });
+
   const user = await prisma.user.upsert({
     where: {
       email: 'test@dev.com',
     },
 
-    update: {},
+    update: {
+      hotelId: hotel.id,
+    },
 
     create: {
       email: 'test@dev.com',
@@ -33,7 +52,7 @@ async function main() {
       passwordHash,
       role: 'OWNER',
       active: true,
-      hotelId: null,
+      hotelId: hotel.id,
     },
   });
 

@@ -235,7 +235,7 @@ describe('AuthController', () => {
 
       sessionId: 'session-id',
 
-      hotelId: null,
+      hotelId: 'c5497c67-4e65-4644-bbb9-e9fb40f76627',
 
       role: 'OWNER',
     };
@@ -277,7 +277,7 @@ describe('AuthController', () => {
 
       sessionId: 'session-id',
 
-      hotelId: null,
+      hotelId: 'c5497c67-4e65-4644-bbb9-e9fb40f76627',
 
       role: 'OWNER',
     };
