@@ -6,12 +6,22 @@ import {
   type NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { AppModule } from '@quickdialog/app.module.js';
 import { AuthService } from '@quickdialog/auth/auth.service.js';
 import { createValidationException } from '@quickdialog/common/errors/validation-exception.factory.js';
 import { PrismaService } from '@quickdialog/database/prisma.service.js';
+import { MetaGraphClient } from '@quickdialog/whatsapp/meta/meta-graph.client.js';
+import { encryptMetaToken } from '@quickdialog/whatsapp/meta/meta-token.util.js';
 
 const notConnectedStatus = {
   status: 'not_connected',
@@ -29,11 +39,17 @@ describe('WhatsApp HTTP integration', () => {
   let app: NestFastifyApplication;
   let authService: AuthService;
   let prisma: PrismaService;
+  const meta = {
+    requestPhoneVerificationCode: vi.fn().mockResolvedValue(undefined),
+    verifyPhoneNumberCode: vi.fn().mockResolvedValue(undefined),
+    registerPhoneNumber: vi.fn().mockResolvedValue(undefined),
+  };
 
   beforeAll(async () => {
-    moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
+    moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(MetaGraphClient)
+      .useValue(meta)
+      .compile();
     app = moduleRef.createNestApplication<NestFastifyApplication>(
       new FastifyAdapter(),
     );
@@ -141,6 +157,121 @@ describe('WhatsApp HTTP integration', () => {
       errorMessage: null,
     });
     expect(response.body).not.toContain('encrypted-token');
+  });
+
+  it('reports an unverified phone as pending verification', async () => {
+    const { hotelId, authorization } = await createOwnerAuthorization();
+    await prisma.whatsAppAccount.create({
+      data: {
+        hotelId,
+        wabaId: 'pending-waba-id',
+        phoneNumberId: 'pending-phone-id',
+        accessTokenEncrypted: 'encrypted-token',
+        status: 'PENDING_VERIFICATION',
+        connectedAt: null,
+      },
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/whatsapp/status',
+      headers: headers(authorization),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      status: 'pending_verification',
+      wabaId: 'pending-waba-id',
+      connectedAt: null,
+    });
+  });
+
+  it('records when the WhatsApp account row was created', async () => {
+    const { hotelId } = await createOwnerAuthorization();
+    const account = await prisma.whatsAppAccount.create({
+      data: {
+        hotelId,
+        wabaId: 'created-at-waba-id',
+        phoneNumberId: 'created-at-phone-id',
+        status: 'PENDING_VERIFICATION',
+        connectedAt: null,
+      },
+    });
+
+    const persistedAccount = await prisma.whatsAppAccount.findUniqueOrThrow({
+      where: { id: account.id },
+    });
+
+    expect(persistedAccount.createdAt).toBeInstanceOf(Date);
+  });
+
+  it('moves a verified phone through registration before reporting it connected', async () => {
+    const { hotelId, authorization } = await createOwnerAuthorization();
+    const config = app.get(ConfigService);
+    await prisma.whatsAppAccount.create({
+      data: {
+        hotelId,
+        wabaId: 'workflow-waba-id',
+        phoneNumberId: 'workflow-phone-id',
+        accessTokenEncrypted: encryptMetaToken(
+          'workflow-meta-token',
+          config.getOrThrow<string>('meta.tokenEncryptionKey'),
+        ),
+        status: 'PENDING_VERIFICATION',
+        connectedAt: null,
+      },
+    });
+
+    const requestHeaders = headers(authorization);
+    const requestCode = await app.inject({
+      method: 'POST',
+      url: '/api/whatsapp/verification-code',
+      headers: requestHeaders,
+      payload: { method: 'SMS' },
+    });
+    expect(requestCode.statusCode).toBe(201);
+    expect(requestCode.json()).toMatchObject({
+      status: 'pending_verification',
+    });
+
+    const verifyCode = await app.inject({
+      method: 'POST',
+      url: '/api/whatsapp/verify-code',
+      headers: requestHeaders,
+      payload: { code: '123456' },
+    });
+    expect(verifyCode.statusCode).toBe(201);
+    expect(verifyCode.json()).toMatchObject({
+      status: 'pending_registration',
+    });
+
+    const register = await app.inject({
+      method: 'POST',
+      url: '/api/whatsapp/register',
+      headers: requestHeaders,
+      payload: { pin: '654321' },
+    });
+    expect(register.statusCode).toBe(201);
+    expect(register.json()).toMatchObject({
+      status: 'connected',
+      connectedAt: expect.any(String),
+    });
+
+    expect(meta.requestPhoneVerificationCode).toHaveBeenCalledWith(
+      'workflow-phone-id',
+      'workflow-meta-token',
+      'SMS',
+    );
+    expect(meta.verifyPhoneNumberCode).toHaveBeenCalledWith(
+      'workflow-phone-id',
+      'workflow-meta-token',
+      '123456',
+    );
+    expect(meta.registerPhoneNumber).toHaveBeenCalledWith(
+      'workflow-phone-id',
+      'workflow-meta-token',
+      '654321',
+    );
   });
 
   it('disconnects an account without deleting its persisted metadata', async () => {

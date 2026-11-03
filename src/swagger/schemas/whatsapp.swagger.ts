@@ -13,7 +13,13 @@ export const whatsappStatusSwaggerSchema = {
   properties: {
     status: {
       type: 'string',
-      enum: ['connected', 'not_connected', 'error'],
+      enum: [
+        'connected',
+        'not_connected',
+        'pending_verification',
+        'pending_registration',
+        'error',
+      ],
       example: 'connected',
     },
     wabaId: { type: 'string', nullable: true, example: '123456789012345' },
@@ -52,5 +58,29 @@ export const completeEmbeddedSignupRequestSwaggerSchema = {
     code: { type: 'string', minLength: 1, example: '<embedded-signup-code>' },
     wabaId: { type: 'string', minLength: 1, example: '123456789012345' },
     phoneNumberId: { type: 'string', minLength: 1, example: '987654321098765' },
+  },
+};
+
+export const requestPhoneVerificationCodeSwaggerSchema = {
+  type: 'object',
+  required: ['method'],
+  properties: {
+    method: { type: 'string', enum: ['SMS', 'VOICE'], example: 'SMS' },
+  },
+};
+
+export const verifyPhoneNumberCodeSwaggerSchema = {
+  type: 'object',
+  required: ['code'],
+  properties: {
+    code: { type: 'string', pattern: '^\\d{6}$', example: '123456' },
+  },
+};
+
+export const registerPhoneNumberSwaggerSchema = {
+  type: 'object',
+  required: ['pin'],
+  properties: {
+    pin: { type: 'string', pattern: '^\\d{6}$', example: '123456' },
   },
 };

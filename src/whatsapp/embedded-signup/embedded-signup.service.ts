@@ -110,7 +110,11 @@ export class EmbeddedSignupService {
       displayPhoneNumber: phone.display_phone_number,
       verifiedName: phone.verified_name,
       accessTokenEncrypted: encryptMetaToken(accessToken, encryptionKey),
-      status: 'CONNECTED',
+      status:
+        phone.code_verification_status?.toUpperCase() === 'VERIFIED'
+          ? 'PENDING_REGISTRATION'
+          : 'PENDING_VERIFICATION',
+      connectedAt: null,
     };
 
     if (existingAccount) {
@@ -123,7 +127,6 @@ export class EmbeddedSignupService {
         data: {
           hotelId,
           ...data,
-          connectedAt: new Date(),
         },
       });
     }

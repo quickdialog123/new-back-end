@@ -182,8 +182,18 @@ describe('Swagger API contract', () => {
     const disconnect = document.paths['/api/whatsapp/disconnect'].post!;
     const complete =
       document.paths['/api/whatsapp/embedded-signup/complete'].post!;
+    const requestCode = document.paths['/api/whatsapp/verification-code'].post!;
+    const verifyCode = document.paths['/api/whatsapp/verify-code'].post!;
+    const register = document.paths['/api/whatsapp/register'].post!;
 
-    for (const operation of [status, disconnect, complete]) {
+    for (const operation of [
+      status,
+      disconnect,
+      complete,
+      requestCode,
+      verifyCode,
+      register,
+    ]) {
       expect(operation.security).toEqual([{ 'access-token': [] }]);
       expect(operation.responses).toHaveProperty('401');
       expect(operation.responses).toHaveProperty('403');
@@ -210,7 +220,13 @@ describe('Swagger API contract', () => {
                 ],
                 properties: {
                   status: {
-                    enum: ['connected', 'not_connected', 'error'],
+                    enum: [
+                      'connected',
+                      'not_connected',
+                      'pending_verification',
+                      'pending_registration',
+                      'error',
+                    ],
                   },
                   connectedAt: { format: 'date-time', nullable: true },
                 },
@@ -249,6 +265,44 @@ describe('Swagger API contract', () => {
     expect(complete.responses).toHaveProperty('201');
     expect(complete.responses).toHaveProperty('400');
     expect(complete.responses).toHaveProperty('404');
+    expect(requestCode).toMatchObject({
+      summary: 'Request a WhatsApp phone ownership verification code',
+      responses: {
+        201: status.responses['200'],
+      },
+      requestBody: {
+        content: {
+          'application/json': {
+            schema: {
+              required: ['method'],
+              properties: {
+                method: { enum: ['SMS', 'VOICE'] },
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(verifyCode.requestBody).toMatchObject({
+      content: {
+        'application/json': {
+          schema: {
+            required: ['code'],
+            properties: { code: { pattern: '^\\d{6}$' } },
+          },
+        },
+      },
+    });
+    expect(register.requestBody).toMatchObject({
+      content: {
+        'application/json': {
+          schema: {
+            required: ['pin'],
+            properties: { pin: { pattern: '^\\d{6}$' } },
+          },
+        },
+      },
+    });
     expect(document.tags).toContainEqual({
       name: 'Whatsapp / Embedded Signup',
       summary: 'Embedded Signup',

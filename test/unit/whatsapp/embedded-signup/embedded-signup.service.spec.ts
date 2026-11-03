@@ -72,6 +72,7 @@ describe('EmbeddedSignupService', () => {
         id: input.phoneNumberId,
         display_phone_number: '+15551234567',
         verified_name: 'QuickDialog Hotel',
+        code_verification_status: 'VERIFIED',
       },
     ]);
     meta.subscribeApp.mockResolvedValue(undefined);
@@ -82,7 +83,7 @@ describe('EmbeddedSignupService', () => {
     accountCreate.mockResolvedValue({ hotelId: 'hotel-id' });
 
     whatsappService.getStatus.mockResolvedValue({
-      status: 'connected',
+      status: 'pending_registration',
     });
 
     const moduleRef = await Test.createTestingModule({
@@ -102,7 +103,7 @@ describe('EmbeddedSignupService', () => {
     accountFindMany.mockResolvedValue([disconnectedAccount]);
 
     await expect(service.complete('hotel-id', input)).resolves.toEqual({
-      status: 'connected',
+      status: 'pending_registration',
     });
 
     expect(accountCreate).not.toHaveBeenCalled();
@@ -113,7 +114,8 @@ describe('EmbeddedSignupService', () => {
         wabaId: input.wabaId,
         phoneNumberId: input.phoneNumberId,
         businessId: 'business-id',
-        status: 'CONNECTED',
+        status: 'PENDING_REGISTRATION',
+        connectedAt: null,
         accessTokenEncrypted: expect.any(String),
       }),
     });
@@ -199,7 +201,7 @@ describe('EmbeddedSignupService', () => {
     ]);
 
     await expect(service.complete('hotel-id', newInput)).resolves.toEqual({
-      status: 'connected',
+      status: 'pending_registration',
     });
 
     expect(meta.getPhoneNumbers).toHaveBeenCalledWith(
@@ -212,7 +214,8 @@ describe('EmbeddedSignupService', () => {
       data: expect.objectContaining({
         wabaId: 'new-waba-id',
         phoneNumberId: 'phone-id',
-        status: 'CONNECTED',
+        status: 'PENDING_REGISTRATION',
+        connectedAt: null,
       }),
     });
 
@@ -221,7 +224,7 @@ describe('EmbeddedSignupService', () => {
 
   it('creates a new account with only an encrypted token', async () => {
     await expect(service.complete('hotel-id', input)).resolves.toEqual({
-      status: 'connected',
+      status: 'pending_registration',
     });
 
     expect(accountUpdate).not.toHaveBeenCalled();
@@ -232,8 +235,8 @@ describe('EmbeddedSignupService', () => {
         wabaId: input.wabaId,
         phoneNumberId: input.phoneNumberId,
         businessId: 'business-id',
-        status: 'CONNECTED',
-        connectedAt: expect.any(Date),
+        status: 'PENDING_REGISTRATION',
+        connectedAt: null,
         accessTokenEncrypted: expect.any(String),
       }),
     });
@@ -285,5 +288,30 @@ describe('EmbeddedSignupService', () => {
 
     expect(accountUpdate).not.toHaveBeenCalled();
     expect(accountCreate).not.toHaveBeenCalled();
+  });
+
+  it('starts phone verification when Meta reports the phone is unverified', async () => {
+    meta.getPhoneNumbers.mockResolvedValue([
+      {
+        id: input.phoneNumberId,
+        display_phone_number: '+15551234567',
+        verified_name: 'QuickDialog Hotel',
+        code_verification_status: 'NOT_VERIFIED',
+      },
+    ]);
+    whatsappService.getStatus.mockResolvedValue({
+      status: 'pending_verification',
+    });
+
+    await expect(service.complete('hotel-id', input)).resolves.toEqual({
+      status: 'pending_verification',
+    });
+
+    expect(accountCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        status: 'PENDING_VERIFICATION',
+        connectedAt: null,
+      }),
+    });
   });
 });

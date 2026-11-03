@@ -160,6 +160,26 @@ Successful responses never include hotel tokens or owner password hashes. Deacti
 
 There is no reactivation endpoint. `PATCH /api/hotels/:id` cannot change a hotel's `active` state.
 
+## WhatsApp connection
+
+WhatsApp connections are hotel-scoped and can be managed by an authenticated hotel owner. Embedded Signup is completed through `POST /api/whatsapp/embedded-signup/complete`; the backend exchanges its code, validates the selected WABA and phone number, subscribes the app, and stores the Meta access token encrypted.
+
+The connection status distinguishes phone ownership verification from Cloud API registration:
+
+- `pending_verification`: Meta reports that the phone number still needs SMS/voice verification.
+- `pending_registration`: phone ownership is verified; the number still needs Cloud API registration.
+- `connected`: Meta's register endpoint accepted the number and PIN.
+- `not_connected`: no active connection exists.
+
+The hotel owner can complete the remaining steps with:
+
+- `POST /api/whatsapp/verification-code` with `{ "method": "SMS" }` or `{ "method": "VOICE" }` to request a code, when the status is `pending_verification`.
+- `POST /api/whatsapp/verify-code` with `{ "code": "123456" }` to verify phone ownership. A successful response moves the connection to `pending_registration`.
+- `POST /api/whatsapp/register` with `{ "pin": "123456" }` to register the verified phone number with Cloud API. Use a new six-digit PIN if none exists, or the existing PIN if two-step verification is already configured. A successful response moves the connection to `connected`.
+- `GET /api/whatsapp/status` to read the current state.
+
+The SMS/voice code and the registration PIN have different purposes. The API does not persist either value. Meta credentials and tokens must remain server-side; the token is stored encrypted and is never included in status responses.
+
 ## Validation
 
 Request validation uses Zod through Nest's built-in `StandardSchemaValidationPipe`.

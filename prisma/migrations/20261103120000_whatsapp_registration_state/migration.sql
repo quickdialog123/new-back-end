@@ -1,0 +1,12 @@
+ALTER TABLE "WhatsAppAccount"
+ALTER COLUMN "connectedAt" DROP NOT NULL;
+
+ALTER TABLE "WhatsAppAccount"
+ADD COLUMN "createdAt" TIMESTAMP(3);
+
+UPDATE "WhatsAppAccount"
+SET "createdAt" = COALESCE("connectedAt", CURRENT_TIMESTAMP);
+
+ALTER TABLE "WhatsAppAccount"
+ALTER COLUMN "createdAt" SET DEFAULT CURRENT_TIMESTAMP,
+ALTER COLUMN "createdAt" SET NOT NULL;
