@@ -1,4 +1,5 @@
 import {
+  BadGatewayException,
   BadRequestException,
   ConflictException,
   ForbiddenException,
@@ -118,6 +119,23 @@ describe('GlobalExceptionFilter', () => {
     );
 
     expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('uses a specific error code for Meta gateway failures', () => {
+    filter.catch(
+      new BadGatewayException('Meta WhatsApp API request failed'),
+      host as never,
+    );
+
+    expect(reply).toHaveBeenCalledWith(
+      response,
+      expect.objectContaining({
+        statusCode: 502,
+        code: 'BAD_GATEWAY',
+        message: 'Meta WhatsApp API request failed',
+      }),
+      502,
+    );
   });
 
   it('formats UnauthorizedException', () => {

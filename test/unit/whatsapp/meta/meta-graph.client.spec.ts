@@ -1,13 +1,12 @@
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
-import { HttpClient } from '@nestjs/http-client';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MetaGraphClient } from '@quickdialog/whatsapp/meta/meta-graph.client.js';
 
 describe('MetaGraphClient', () => {
   let client: MetaGraphClient;
-  const http = { get: vi.fn(), post: vi.fn() };
+  const fetchMock = vi.fn();
   const config = {
     getOrThrow: vi.fn(
       (key: string) =>
@@ -21,32 +20,48 @@ describe('MetaGraphClient', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    vi.stubGlobal('fetch', fetchMock);
     const moduleRef = await Test.createTestingModule({
       providers: [
         MetaGraphClient,
-        { provide: HttpClient, useValue: http },
         { provide: ConfigService, useValue: config },
       ],
     }).compile();
     client = moduleRef.get(MetaGraphClient);
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function jsonResponse(data: unknown, ok = true) {
+    return {
+      ok,
+      json: vi.fn().mockResolvedValue(data),
+    };
+  }
+
   it('exchanges a signup code for an access token', async () => {
-    http.get.mockResolvedValue({ data: { access_token: 'meta-access-token' } });
+    fetchMock.mockResolvedValue(
+      jsonResponse({ access_token: 'meta-access-token' }),
+    );
 
     await expect(client.exchangeCode('code with spaces')).resolves.toBe(
       'meta-access-token',
     );
-    expect(http.get).toHaveBeenCalledWith(
-      '/v26.0/oauth/access_token?client_id=meta-app-id&client_secret=meta-app-secret&code=code+with+spaces',
+    const [url] = fetchMock.mock.calls[0];
+    expect(url).toBe(
+      'https://graph.facebook.com/v26.0/oauth/access_token?client_id=meta-app-id&client_secret=meta-app-secret&code=code+with+spaces',
     );
   });
 
   it('gets the client business ID and phone numbers with bearer authorization', async () => {
-    http.get
-      .mockResolvedValueOnce({ data: { client_business_id: 'business-id' } })
-      .mockResolvedValueOnce({
-        data: {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({ client_business_id: 'business-id' }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
           data: [
             {
               id: 'phone-id',
@@ -54,8 +69,8 @@ describe('MetaGraphClient', () => {
               verified_name: 'QuickDialog Hotel',
             },
           ],
-        },
-      });
+        }),
+      );
 
     await expect(client.getClientBusinessId('access-token')).resolves.toBe(
       'business-id',
@@ -69,31 +84,125 @@ describe('MetaGraphClient', () => {
         verified_name: 'QuickDialog Hotel',
       },
     ]);
-    expect(http.get).toHaveBeenNthCalledWith(
+    expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      '/v26.0/me?fields=client_business_id',
-      { headers: { authorization: 'Bearer access-token' } },
+      'https://graph.facebook.com/v26.0/me?fields=client_business_id',
+      expect.objectContaining({
+        headers: { authorization: 'Bearer access-token' },
+        signal: expect.any(AbortSignal),
+      }),
     );
-    expect(http.get).toHaveBeenNthCalledWith(
+    expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      '/v26.0/waba-id/phone_numbers?fields=id,display_phone_number,verified_name,status,code_verification_status,name_status',
-      { headers: { authorization: 'Bearer access-token' } },
+      'https://graph.facebook.com/v26.0/waba-id/phone_numbers?fields=id,display_phone_number,verified_name,status,code_verification_status,name_status',
+      expect.objectContaining({
+        headers: { authorization: 'Bearer access-token' },
+        signal: expect.any(AbortSignal),
+      }),
     );
   });
 
+  it('requests and verifies a phone code and registers the phone with a PIN', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ success: true }))
+      .mockResolvedValueOnce(jsonResponse({ success: true }))
+      .mockResolvedValueOnce(jsonResponse({ success: true }));
+
+    await client.requestPhoneVerificationCode(
+      'phone-id',
+      'access-token',
+      'SMS',
+    );
+    await client.verifyPhoneNumberCode('phone-id', 'access-token', '123456');
+    await client.registerPhoneNumber('phone-id', 'access-token', '654321');
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://graph.facebook.com/v26.0/phone-id/request_code',
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer access-token',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ code_method: 'SMS', language: 'en_US' }),
+        signal: expect.any(AbortSignal),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://graph.facebook.com/v26.0/phone-id/verify_code',
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer access-token',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ code: '123456' }),
+        signal: expect.any(AbortSignal),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'https://graph.facebook.com/v26.0/phone-id/register',
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer access-token',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          pin: '654321',
+        }),
+        signal: expect.any(AbortSignal),
+      }),
+    );
+  });
+
+  it('encodes Meta asset IDs as single path segments', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ success: true }));
+
+    await client.requestPhoneVerificationCode(
+      'phone/id?unexpected=query',
+      'access-token',
+      'SMS',
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://graph.facebook.com/v26.0/phone%2Fid%3Funexpected%3Dquery/request_code',
+      expect.any(Object),
+    );
+  });
+
+  it('does not expose Meta response details when the Graph API rejects a call', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ error: { message: 'secret provider details' } }, false),
+    );
+
+    await expect(
+      client.registerPhoneNumber('phone-id', 'token', '123456'),
+    ).rejects.toThrow('Meta WhatsApp API request failed');
+  });
+
   it('subscribes the app and propagates Meta errors', async () => {
-    http.post.mockResolvedValue({});
+    fetchMock.mockResolvedValueOnce(jsonResponse({ success: true }));
 
     await expect(client.subscribeApp('waba-id', 'access-token')).resolves.toBe(
       undefined,
     );
-    expect(http.post).toHaveBeenCalledWith('/v26.0/waba-id/subscribed_apps', {
-      headers: { authorization: 'Bearer access-token' },
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://graph.facebook.com/v26.0/waba-id/subscribed_apps',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { authorization: 'Bearer access-token' },
+        signal: expect.any(AbortSignal),
+      }),
+    );
 
-    http.get.mockRejectedValueOnce(new Error('Meta unavailable'));
+    fetchMock.mockRejectedValueOnce(new Error('network details'));
     await expect(client.exchangeCode('code')).rejects.toThrow(
-      'Meta unavailable',
+      'Unable to reach Meta WhatsApp API',
     );
   });
 });

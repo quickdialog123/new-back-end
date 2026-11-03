@@ -9,7 +9,13 @@ import { WhatsappService } from '@quickdialog/whatsapp/whatsapp.service.js';
 
 describe('WhatsappController', () => {
   let controller: WhatsappController;
-  const whatsappService = { getStatus: vi.fn(), disconnect: vi.fn() };
+  const whatsappService = {
+    getStatus: vi.fn(),
+    disconnect: vi.fn(),
+    requestPhoneVerificationCode: vi.fn(),
+    verifyPhoneNumberCode: vi.fn(),
+    registerPhoneNumber: vi.fn(),
+  };
   const user = {
     userId: 'user-id',
     sessionId: 'session-id',
@@ -41,6 +47,45 @@ describe('WhatsappController', () => {
     });
     expect(whatsappService.getStatus).toHaveBeenCalledWith('hotel-id');
     expect(whatsappService.disconnect).toHaveBeenCalledWith('hotel-id');
+  });
+
+  it('routes verification and registration actions to the authenticated hotel', async () => {
+    const request = { method: 'SMS' as const };
+    const verify = { code: '123456' };
+    const register = { pin: '654321' };
+
+    whatsappService.requestPhoneVerificationCode.mockResolvedValue({
+      status: 'pending_verification',
+    });
+    whatsappService.verifyPhoneNumberCode.mockResolvedValue({
+      status: 'pending_registration',
+    });
+    whatsappService.registerPhoneNumber.mockResolvedValue({
+      status: 'connected',
+    });
+
+    await expect(
+      controller.requestPhoneVerificationCode(user as never, request),
+    ).resolves.toMatchObject({ status: 'pending_verification' });
+    await expect(
+      controller.verifyPhoneNumberCode(user as never, verify),
+    ).resolves.toMatchObject({ status: 'pending_registration' });
+    await expect(
+      controller.registerPhoneNumber(user as never, register),
+    ).resolves.toMatchObject({ status: 'connected' });
+
+    expect(whatsappService.requestPhoneVerificationCode).toHaveBeenCalledWith(
+      'hotel-id',
+      'SMS',
+    );
+    expect(whatsappService.verifyPhoneNumberCode).toHaveBeenCalledWith(
+      'hotel-id',
+      '123456',
+    );
+    expect(whatsappService.registerPhoneNumber).toHaveBeenCalledWith(
+      'hotel-id',
+      '654321',
+    );
   });
 
   it('rejects users without a hotel context', () => {

@@ -1,7 +1,11 @@
+import { BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PrismaService } from '@quickdialog/database/prisma.service.js';
+import { MetaGraphClient } from '@quickdialog/whatsapp/meta/meta-graph.client.js';
+import { encryptMetaToken } from '@quickdialog/whatsapp/meta/meta-token.util.js';
 import { WhatsappService } from '@quickdialog/whatsapp/whatsapp.service.js';
 
 describe('WhatsappService', () => {
@@ -9,11 +13,33 @@ describe('WhatsappService', () => {
 
   const findFirst = vi.fn();
   const updateMany = vi.fn();
+  const update = vi.fn();
+  const meta = {
+    requestPhoneVerificationCode: vi.fn(),
+    verifyPhoneNumberCode: vi.fn(),
+    registerPhoneNumber: vi.fn(),
+  };
+  const config = { getOrThrow: vi.fn() };
+  const encryptionKey = Buffer.alloc(32, 1).toString('base64');
+  const encryptedToken = encryptMetaToken('meta-token', encryptionKey);
+  const account = {
+    id: 'account-id',
+    hotelId: 'hotel-id',
+    wabaId: 'waba-id',
+    phoneNumberId: 'phone-id',
+    accessTokenEncrypted: encryptedToken,
+    status: 'PENDING_VERIFICATION',
+    displayPhoneNumber: '+15551234567',
+    verifiedName: 'QuickDialog Hotel',
+    connectedAt: null,
+  };
+  let persistedAccount: typeof account;
 
   const prisma = {
     whatsAppAccount: {
       findFirst,
       updateMany,
+      update,
     },
   };
 
@@ -21,11 +47,23 @@ describe('WhatsappService', () => {
     vi.resetAllMocks();
 
     updateMany.mockResolvedValue({ count: 0 });
+    persistedAccount = { ...account };
+    findFirst.mockImplementation(() => Promise.resolve(persistedAccount));
+    update.mockImplementation(({ data }) => {
+      persistedAccount = { ...persistedAccount, ...data };
+      return Promise.resolve(persistedAccount);
+    });
+    meta.requestPhoneVerificationCode.mockResolvedValue(undefined);
+    meta.verifyPhoneNumberCode.mockResolvedValue(undefined);
+    meta.registerPhoneNumber.mockResolvedValue(undefined);
+    config.getOrThrow.mockReturnValue(encryptionKey);
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         WhatsappService,
         { provide: PrismaService, useValue: prisma },
+        { provide: MetaGraphClient, useValue: meta },
+        { provide: ConfigService, useValue: config },
       ],
     }).compile();
 
@@ -84,6 +122,79 @@ describe('WhatsappService', () => {
       wabaId: null,
       phoneNumber: null,
     });
+  });
+
+  it('reports pending verification without claiming the account is connected', async () => {
+    findFirst.mockResolvedValue(account);
+
+    await expect(service.getStatus('hotel-id')).resolves.toMatchObject({
+      status: 'pending_verification',
+      phoneNumber: '+15551234567',
+      connectedAt: null,
+    });
+  });
+
+  it('requests an SMS verification code for the hotel phone number', async () => {
+    await expect(
+      service.requestPhoneVerificationCode('hotel-id', 'SMS'),
+    ).resolves.toMatchObject({ status: 'pending_verification' });
+
+    expect(meta.requestPhoneVerificationCode).toHaveBeenCalledWith(
+      'phone-id',
+      'meta-token',
+      'SMS',
+    );
+  });
+
+  it('verifies the ownership code and advances to pending registration', async () => {
+    persistedAccount = { ...account, status: 'PENDING_VERIFICATION' };
+
+    await expect(
+      service.verifyPhoneNumberCode('hotel-id', '123456'),
+    ).resolves.toMatchObject({ status: 'pending_registration' });
+
+    expect(meta.verifyPhoneNumberCode).toHaveBeenCalledWith(
+      'phone-id',
+      'meta-token',
+      '123456',
+    );
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'account-id' },
+      data: { status: 'PENDING_REGISTRATION' },
+    });
+  });
+
+  it('registers a pending number with Meta before marking it connected', async () => {
+    persistedAccount = { ...account, status: 'PENDING_REGISTRATION' };
+
+    await expect(
+      service.registerPhoneNumber('hotel-id', '654321'),
+    ).resolves.toMatchObject({
+      status: 'connected',
+      connectedAt: expect.any(String),
+    });
+
+    expect(meta.registerPhoneNumber).toHaveBeenCalledWith(
+      'phone-id',
+      'meta-token',
+      '654321',
+    );
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'account-id' },
+      data: {
+        status: 'CONNECTED',
+        connectedAt: expect.any(Date),
+      },
+    });
+  });
+
+  it('does not register a number before ownership verification', async () => {
+    findFirst.mockResolvedValue(account);
+
+    await expect(
+      service.registerPhoneNumber('hotel-id', '654321'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(meta.registerPhoneNumber).not.toHaveBeenCalled();
   });
 
   it('maps an unexpected active account status to error', async () => {

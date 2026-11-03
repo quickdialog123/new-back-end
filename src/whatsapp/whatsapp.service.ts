@@ -1,9 +1,20 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@quickdialog/database/prisma.service.js';
+import { MetaGraphClient } from './meta/meta-graph.client.js';
+import { decryptMetaToken } from './meta/meta-token.util.js';
 
-// temp DTO
 export type WhatsAppStatusDto = {
-  status: 'connected' | 'not_connected' | 'error';
+  status:
+    | 'connected'
+    | 'not_connected'
+    | 'pending_verification'
+    | 'pending_registration'
+    | 'error';
   wabaId: string | null;
   phoneNumber: string | null;
   displayName: string | null;
@@ -15,7 +26,11 @@ export type WhatsAppStatusDto = {
 
 @Injectable()
 export class WhatsappService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly meta: MetaGraphClient,
+    private readonly config: ConfigService,
+  ) {}
 
   async getStatus(hotelId: string): Promise<WhatsAppStatusDto> {
     const account = await this.prisma.whatsAppAccount.findFirst({
@@ -27,8 +42,10 @@ export class WhatsappService {
       return this.notConnected();
     }
 
+    const status = this.toPublicStatus(account.status);
+
     return {
-      status: account.status === 'CONNECTED' ? 'connected' : 'error',
+      status,
       wabaId: account.wabaId,
       phoneNumber: account.displayPhoneNumber,
       displayName: account.verifiedName,
@@ -40,6 +57,73 @@ export class WhatsappService {
           : null,
       errorMessage: null,
     };
+  }
+
+  async requestPhoneVerificationCode(
+    hotelId: string,
+    method: 'SMS' | 'VOICE',
+  ): Promise<WhatsAppStatusDto> {
+    const account = await this.getAccountInStatus(
+      hotelId,
+      'PENDING_VERIFICATION',
+    );
+
+    await this.meta.requestPhoneVerificationCode(
+      account.phoneNumberId,
+      this.accessToken(account.accessTokenEncrypted),
+      method,
+    );
+
+    return this.getStatus(hotelId);
+  }
+
+  async verifyPhoneNumberCode(
+    hotelId: string,
+    code: string,
+  ): Promise<WhatsAppStatusDto> {
+    const account = await this.getAccountInStatus(
+      hotelId,
+      'PENDING_VERIFICATION',
+    );
+
+    await this.meta.verifyPhoneNumberCode(
+      account.phoneNumberId,
+      this.accessToken(account.accessTokenEncrypted),
+      code,
+    );
+
+    await this.prisma.whatsAppAccount.update({
+      where: { id: account.id },
+      data: { status: 'PENDING_REGISTRATION' },
+    });
+
+    return this.getStatus(hotelId);
+  }
+
+  async registerPhoneNumber(
+    hotelId: string,
+    pin: string,
+  ): Promise<WhatsAppStatusDto> {
+    const account = await this.getAccountInStatus(
+      hotelId,
+      'PENDING_REGISTRATION',
+    );
+
+    await this.meta.registerPhoneNumber(
+      account.phoneNumberId,
+      this.accessToken(account.accessTokenEncrypted),
+      pin,
+    );
+
+    await this.prisma.whatsAppAccount.update({
+      where: { id: account.id },
+      data: {
+        status: 'CONNECTED',
+        connectedAt: new Date(),
+      },
+    });
+
+    return this.getStatus(hotelId);
   }
 
   async disconnect(hotelId: string): Promise<WhatsAppStatusDto> {
@@ -68,5 +152,53 @@ export class WhatsappService {
       connectedAt: null,
       errorMessage: null,
     };
+  }
+
+  private async getAccountInStatus(hotelId: string, status: string) {
+    const account = await this.prisma.whatsAppAccount.findFirst({
+      where: { hotelId, status: { not: 'DISCONNECTED' } },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    if (!account) {
+      throw new NotFoundException('WhatsApp connection not found');
+    }
+
+    if (account.status !== status) {
+      throw new BadRequestException(
+        'WhatsApp connection is in the wrong state',
+      );
+    }
+
+    const encryptedToken = account.accessTokenEncrypted;
+
+    if (!encryptedToken) {
+      throw new BadRequestException(
+        'WhatsApp connection requires reconnection',
+      );
+    }
+
+    return { ...account, accessTokenEncrypted: encryptedToken };
+  }
+
+  private accessToken(encryptedToken: string): string {
+    const encryptionKey = this.config.getOrThrow<string>(
+      'meta.tokenEncryptionKey',
+    );
+
+    return decryptMetaToken(encryptedToken, encryptionKey);
+  }
+
+  private toPublicStatus(status: string): WhatsAppStatusDto['status'] {
+    switch (status) {
+      case 'CONNECTED':
+        return 'connected';
+      case 'PENDING_VERIFICATION':
+        return 'pending_verification';
+      case 'PENDING_REGISTRATION':
+        return 'pending_registration';
+      default:
+        return 'error';
+    }
   }
 }
