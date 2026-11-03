@@ -34,26 +34,20 @@ export class WhatsappService {
       displayName: account.verifiedName,
       wabaStatus: null,
       qualityRating: null,
-      connectedAt: account.connectedAt.toISOString(),
+      connectedAt:
+        account.status === 'CONNECTED'
+          ? (account.connectedAt?.toISOString() ?? null)
+          : null,
       errorMessage: null,
     };
   }
 
   async disconnect(hotelId: string): Promise<WhatsAppStatusDto> {
-    const account = await this.prisma.whatsAppAccount.findFirst({
+    await this.prisma.whatsAppAccount.updateMany({
       where: {
         hotelId,
         status: { not: 'DISCONNECTED' },
       },
-      orderBy: { updatedAt: 'desc' },
-    });
-
-    if (!account) {
-      return this.notConnected();
-    }
-
-    await this.prisma.whatsAppAccount.update({
-      where: { id: account.id },
       data: {
         status: 'DISCONNECTED',
         accessTokenEncrypted: null,
