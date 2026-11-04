@@ -19,8 +19,7 @@ export class EmbeddedSignupController {
   constructor(private readonly embeddedSignupService: EmbeddedSignupService) {}
 
   @Post('complete')
-  //@Roles(UserRole.OWNER)
-  @Public()
+  @Roles(UserRole.OWNER)
   @ApiCompleteEmbeddedSignupDocs()
   complete(
     @CurrentUser() user: AuthenticatedUser,
@@ -31,7 +30,6 @@ export class EmbeddedSignupController {
       throw new BadRequestException('Authenticated user has no hotel');
     }
 
-    console.log('user.hotelId', user.hotelId);
     return this.embeddedSignupService.complete(user.hotelId, input);
   }
 }
