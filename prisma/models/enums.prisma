@@ -5,3 +5,9 @@ enum UserRole {
   CLIENT
   AUTHORITY
 }
+
+enum WhatsAppAccountStatus {
+  CONNECTED
+  NOT_CONNECTED
+  UNVERIFIED
+}

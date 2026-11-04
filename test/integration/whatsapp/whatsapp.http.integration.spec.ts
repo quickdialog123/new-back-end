@@ -40,8 +40,6 @@ describe('WhatsApp HTTP integration', () => {
   let authService: AuthService;
   let prisma: PrismaService;
   const meta = {
-    requestPhoneVerificationCode: vi.fn().mockResolvedValue(undefined),
-    verifyPhoneNumberCode: vi.fn().mockResolvedValue(undefined),
     registerPhoneNumber: vi.fn().mockResolvedValue(undefined),
   };
 
@@ -159,7 +157,7 @@ describe('WhatsApp HTTP integration', () => {
     expect(response.body).not.toContain('encrypted-token');
   });
 
-  it('reports an unverified phone as pending verification', async () => {
+  it('reports an unverified account while awaiting its registration PIN', async () => {
     const { hotelId, authorization } = await createOwnerAuthorization();
     await prisma.whatsAppAccount.create({
       data: {
@@ -167,7 +165,7 @@ describe('WhatsApp HTTP integration', () => {
         wabaId: 'pending-waba-id',
         phoneNumberId: 'pending-phone-id',
         accessTokenEncrypted: 'encrypted-token',
-        status: 'PENDING_VERIFICATION',
+        status: 'UNVERIFIED',
         connectedAt: null,
       },
     });
@@ -180,7 +178,7 @@ describe('WhatsApp HTTP integration', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
-      status: 'pending_verification',
+      status: 'unverified',
       wabaId: 'pending-waba-id',
       connectedAt: null,
     });
@@ -193,7 +191,7 @@ describe('WhatsApp HTTP integration', () => {
         hotelId,
         wabaId: 'created-at-waba-id',
         phoneNumberId: 'created-at-phone-id',
-        status: 'PENDING_VERIFICATION',
+        status: 'UNVERIFIED',
         connectedAt: null,
       },
     });
@@ -205,7 +203,7 @@ describe('WhatsApp HTTP integration', () => {
     expect(persistedAccount.createdAt).toBeInstanceOf(Date);
   });
 
-  it('moves a verified phone through registration before reporting it connected', async () => {
+  it('registers an unverified phone directly with its PIN before reporting it connected', async () => {
     const { hotelId, authorization } = await createOwnerAuthorization();
     const config = app.get(ConfigService);
     await prisma.whatsAppAccount.create({
@@ -217,38 +215,15 @@ describe('WhatsApp HTTP integration', () => {
           'workflow-meta-token',
           config.getOrThrow<string>('meta.tokenEncryptionKey'),
         ),
-        status: 'PENDING_VERIFICATION',
+        status: 'UNVERIFIED',
         connectedAt: null,
       },
-    });
-
-    const requestHeaders = headers(authorization);
-    const requestCode = await app.inject({
-      method: 'POST',
-      url: '/api/whatsapp/verification-code',
-      headers: requestHeaders,
-      payload: { method: 'SMS' },
-    });
-    expect(requestCode.statusCode).toBe(201);
-    expect(requestCode.json()).toMatchObject({
-      status: 'pending_verification',
-    });
-
-    const verifyCode = await app.inject({
-      method: 'POST',
-      url: '/api/whatsapp/verify-code',
-      headers: requestHeaders,
-      payload: { code: '123456' },
-    });
-    expect(verifyCode.statusCode).toBe(201);
-    expect(verifyCode.json()).toMatchObject({
-      status: 'pending_registration',
     });
 
     const register = await app.inject({
       method: 'POST',
       url: '/api/whatsapp/register',
-      headers: requestHeaders,
+      headers: headers(authorization),
       payload: { pin: '654321' },
     });
     expect(register.statusCode).toBe(201);
@@ -257,16 +232,6 @@ describe('WhatsApp HTTP integration', () => {
       connectedAt: expect.any(String),
     });
 
-    expect(meta.requestPhoneVerificationCode).toHaveBeenCalledWith(
-      'workflow-phone-id',
-      'workflow-meta-token',
-      'SMS',
-    );
-    expect(meta.verifyPhoneNumberCode).toHaveBeenCalledWith(
-      'workflow-phone-id',
-      'workflow-meta-token',
-      '123456',
-    );
     expect(meta.registerPhoneNumber).toHaveBeenCalledWith(
       'workflow-phone-id',
       'workflow-meta-token',
@@ -305,7 +270,7 @@ describe('WhatsApp HTTP integration', () => {
       phoneNumberId: 'phone-id',
       displayPhoneNumber: '+15551234567',
       verifiedName: 'QuickDialog Hotel',
-      status: 'DISCONNECTED',
+        status: 'NOT_CONNECTED',
       accessTokenEncrypted: null,
     });
   });

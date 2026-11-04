@@ -1,4 +1,4 @@
-import { BadGatewayException, Injectable } from '@nestjs/common';
+import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type {
   MetaAccessTokenResponse,
@@ -6,10 +6,10 @@ import type {
   MetaPhoneNumbersResponse,
 } from './meta.types.js';
 
-type PhoneVerificationMethod = 'SMS' | 'VOICE';
-
 @Injectable()
 export class MetaGraphClient {
+  private readonly logger = new Logger(MetaGraphClient.name);
+
   constructor(private readonly config: ConfigService) {}
 
   async exchangeCode(code: string): Promise<string> {
@@ -54,30 +54,6 @@ export class MetaGraphClient {
     );
 
     return data.data;
-  }
-
-  async requestPhoneVerificationCode(
-    phoneNumberId: string,
-    accessToken: string,
-    method: PhoneVerificationMethod,
-  ): Promise<void> {
-    await this.request(`/${encodeURIComponent(phoneNumberId)}/request_code`, {
-      method: 'POST',
-      accessToken,
-      body: { code_method: method, language: 'en_US' },
-    });
-  }
-
-  async verifyPhoneNumberCode(
-    phoneNumberId: string,
-    accessToken: string,
-    code: string,
-  ): Promise<void> {
-    await this.request(`/${encodeURIComponent(phoneNumberId)}/verify_code`, {
-      method: 'POST',
-      accessToken,
-      body: { code },
-    });
   }
 
   async registerPhoneNumber(
@@ -135,6 +111,34 @@ export class MetaGraphClient {
     }
 
     if (!response.ok) {
+      let errorDetails: Record<string, unknown> = {};
+
+      try {
+        const payload: unknown = await response.json();
+        if (
+          typeof payload === 'object' &&
+          payload !== null &&
+          'error' in payload &&
+          typeof payload.error === 'object' &&
+          payload.error !== null
+        ) {
+          const error = payload.error as Record<string, unknown>;
+          errorDetails = {
+            ...(typeof error.type === 'string' && { errorType: error.type }),
+            ...(typeof error.code === 'number' && { errorCode: error.code }),
+            ...(typeof error.error_subcode === 'number' && {
+              errorSubcode: error.error_subcode,
+            }),
+          };
+        }
+      } catch {
+        // Keep the public error generic if Meta returns an unreadable body.
+      }
+
+      this.logger.warn('Meta WhatsApp API request failed', {
+        status: response.status,
+        ...errorDetails,
+      });
       throw new BadGatewayException('Meta WhatsApp API request failed');
     }
 

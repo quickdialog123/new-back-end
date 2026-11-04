@@ -13,20 +13,15 @@ import { UserRole } from '@quickdialog/generated/prisma/client.js';
 import {
   ApiDisconnectWhatsAppDocs,
   ApiRegisterWhatsAppPhoneDocs,
-  ApiRequestWhatsAppVerificationCodeDocs,
   ApiWhatsAppStatusDocs,
-  ApiVerifyWhatsAppPhoneDocs,
 } from '@quickdialog/swagger/decorators/whatsapp.decorator.js';
 import { SWAGGER_TAGS } from '@quickdialog/swagger/swagger.tags.js';
 import { WhatsappService } from './whatsapp.service.js';
 import {
   registerPhoneNumberSchema,
-  requestPhoneVerificationCodeSchema,
-  verifyPhoneNumberCodeSchema,
   type RegisterPhoneNumberDTO,
-  type RequestPhoneVerificationCodeDTO,
-  type VerifyPhoneNumberCodeDTO,
 } from './schemas/whatsapp-verification.schema.js';
+import { Public } from '@quickdialog/common/decorators/public.decorator.js';
 
 @ApiTags(SWAGGER_TAGS.WHATSAPP.ROOT)
 @Controller('whatsapp')
@@ -45,34 +40,6 @@ export class WhatsappController {
   @ApiDisconnectWhatsAppDocs()
   disconnect(@CurrentUser() user: AuthenticatedUser) {
     return this.whatsappService.disconnect(this.hotelId(user));
-  }
-
-  @Post('verification-code')
-  @Roles(UserRole.OWNER)
-  @ApiRequestWhatsAppVerificationCodeDocs()
-  requestPhoneVerificationCode(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body({ schema: requestPhoneVerificationCodeSchema })
-    input: RequestPhoneVerificationCodeDTO,
-  ) {
-    return this.whatsappService.requestPhoneVerificationCode(
-      this.hotelId(user),
-      input.method,
-    );
-  }
-
-  @Post('verify-code')
-  @Roles(UserRole.OWNER)
-  @ApiVerifyWhatsAppPhoneDocs()
-  verifyPhoneNumberCode(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body({ schema: verifyPhoneNumberCodeSchema })
-    input: VerifyPhoneNumberCodeDTO,
-  ) {
-    return this.whatsappService.verifyPhoneNumberCode(
-      this.hotelId(user),
-      input.code,
-    );
   }
 
   @Post('register')

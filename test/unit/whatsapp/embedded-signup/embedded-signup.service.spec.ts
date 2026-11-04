@@ -55,7 +55,7 @@ describe('EmbeddedSignupService', () => {
     hotelId: 'hotel-id',
     wabaId: input.wabaId,
     phoneNumberId: input.phoneNumberId,
-    status: 'DISCONNECTED',
+    status: 'NOT_CONNECTED',
   };
 
   beforeEach(async () => {
@@ -83,7 +83,7 @@ describe('EmbeddedSignupService', () => {
     accountCreate.mockResolvedValue({ hotelId: 'hotel-id' });
 
     whatsappService.getStatus.mockResolvedValue({
-      status: 'pending_registration',
+      status: 'unverified',
     });
 
     const moduleRef = await Test.createTestingModule({
@@ -103,7 +103,7 @@ describe('EmbeddedSignupService', () => {
     accountFindMany.mockResolvedValue([disconnectedAccount]);
 
     await expect(service.complete('hotel-id', input)).resolves.toEqual({
-      status: 'pending_registration',
+      status: 'unverified',
     });
 
     expect(accountCreate).not.toHaveBeenCalled();
@@ -114,7 +114,7 @@ describe('EmbeddedSignupService', () => {
         wabaId: input.wabaId,
         phoneNumberId: input.phoneNumberId,
         businessId: 'business-id',
-        status: 'PENDING_REGISTRATION',
+        status: 'UNVERIFIED',
         connectedAt: null,
         accessTokenEncrypted: expect.any(String),
       }),
@@ -201,7 +201,7 @@ describe('EmbeddedSignupService', () => {
     ]);
 
     await expect(service.complete('hotel-id', newInput)).resolves.toEqual({
-      status: 'pending_registration',
+      status: 'unverified',
     });
 
     expect(meta.getPhoneNumbers).toHaveBeenCalledWith(
@@ -214,7 +214,7 @@ describe('EmbeddedSignupService', () => {
       data: expect.objectContaining({
         wabaId: 'new-waba-id',
         phoneNumberId: 'phone-id',
-        status: 'PENDING_REGISTRATION',
+        status: 'UNVERIFIED',
         connectedAt: null,
       }),
     });
@@ -224,7 +224,7 @@ describe('EmbeddedSignupService', () => {
 
   it('creates a new account with only an encrypted token', async () => {
     await expect(service.complete('hotel-id', input)).resolves.toEqual({
-      status: 'pending_registration',
+      status: 'unverified',
     });
 
     expect(accountUpdate).not.toHaveBeenCalled();
@@ -235,7 +235,7 @@ describe('EmbeddedSignupService', () => {
         wabaId: input.wabaId,
         phoneNumberId: input.phoneNumberId,
         businessId: 'business-id',
-        status: 'PENDING_REGISTRATION',
+        status: 'UNVERIFIED',
         connectedAt: null,
         accessTokenEncrypted: expect.any(String),
       }),
@@ -259,14 +259,14 @@ describe('EmbeddedSignupService', () => {
         hotelId: 'hotel-id',
         wabaId: 'old-waba-id',
         phoneNumberId: 'phone-id',
-        status: 'DISCONNECTED',
+        status: 'NOT_CONNECTED',
       },
       {
         id: 'account-2',
         hotelId: 'hotel-id',
         wabaId: 'waba-id',
         phoneNumberId: 'other-phone-id',
-        status: 'DISCONNECTED',
+        status: 'NOT_CONNECTED',
       },
     ]);
 
@@ -290,7 +290,7 @@ describe('EmbeddedSignupService', () => {
     expect(accountCreate).not.toHaveBeenCalled();
   });
 
-  it('starts phone verification when Meta reports the phone is unverified', async () => {
+  it('stores the account as unverified while awaiting its registration PIN', async () => {
     meta.getPhoneNumbers.mockResolvedValue([
       {
         id: input.phoneNumberId,
@@ -300,16 +300,16 @@ describe('EmbeddedSignupService', () => {
       },
     ]);
     whatsappService.getStatus.mockResolvedValue({
-      status: 'pending_verification',
+      status: 'unverified',
     });
 
     await expect(service.complete('hotel-id', input)).resolves.toEqual({
-      status: 'pending_verification',
+      status: 'unverified',
     });
 
     expect(accountCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        status: 'PENDING_VERIFICATION',
+        status: 'UNVERIFIED',
         connectedAt: null,
       }),
     });

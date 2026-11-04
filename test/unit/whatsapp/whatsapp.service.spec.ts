@@ -15,8 +15,6 @@ describe('WhatsappService', () => {
   const updateMany = vi.fn();
   const update = vi.fn();
   const meta = {
-    requestPhoneVerificationCode: vi.fn(),
-    verifyPhoneNumberCode: vi.fn(),
     registerPhoneNumber: vi.fn(),
   };
   const config = { getOrThrow: vi.fn() };
@@ -28,7 +26,7 @@ describe('WhatsappService', () => {
     wabaId: 'waba-id',
     phoneNumberId: 'phone-id',
     accessTokenEncrypted: encryptedToken,
-    status: 'PENDING_VERIFICATION',
+    status: 'UNVERIFIED',
     displayPhoneNumber: '+15551234567',
     verifiedName: 'QuickDialog Hotel',
     connectedAt: null,
@@ -53,8 +51,6 @@ describe('WhatsappService', () => {
       persistedAccount = { ...persistedAccount, ...data };
       return Promise.resolve(persistedAccount);
     });
-    meta.requestPhoneVerificationCode.mockResolvedValue(undefined);
-    meta.verifyPhoneNumberCode.mockResolvedValue(undefined);
     meta.registerPhoneNumber.mockResolvedValue(undefined);
     config.getOrThrow.mockReturnValue(encryptionKey);
 
@@ -113,7 +109,7 @@ describe('WhatsappService', () => {
 
   it('returns not_connected for a disconnected account', async () => {
     findFirst.mockResolvedValue({
-      status: 'DISCONNECTED',
+      status: 'NOT_CONNECTED',
       wabaId: 'waba-id',
     });
 
@@ -124,48 +120,19 @@ describe('WhatsappService', () => {
     });
   });
 
-  it('reports pending verification without claiming the account is connected', async () => {
+  it('reports an unverified account without claiming it is connected', async () => {
     findFirst.mockResolvedValue(account);
 
     await expect(service.getStatus('hotel-id')).resolves.toMatchObject({
-      status: 'pending_verification',
+      status: 'unverified',
       phoneNumber: '+15551234567',
       connectedAt: null,
     });
   });
 
-  it('requests an SMS verification code for the hotel phone number', async () => {
-    await expect(
-      service.requestPhoneVerificationCode('hotel-id', 'SMS'),
-    ).resolves.toMatchObject({ status: 'pending_verification' });
-
-    expect(meta.requestPhoneVerificationCode).toHaveBeenCalledWith(
-      'phone-id',
-      'meta-token',
-      'SMS',
-    );
-  });
-
-  it('verifies the ownership code and advances to pending registration', async () => {
-    persistedAccount = { ...account, status: 'PENDING_VERIFICATION' };
-
-    await expect(
-      service.verifyPhoneNumberCode('hotel-id', '123456'),
-    ).resolves.toMatchObject({ status: 'pending_registration' });
-
-    expect(meta.verifyPhoneNumberCode).toHaveBeenCalledWith(
-      'phone-id',
-      'meta-token',
-      '123456',
-    );
-    expect(update).toHaveBeenCalledWith({
-      where: { id: 'account-id' },
-      data: { status: 'PENDING_REGISTRATION' },
-    });
-  });
-
-  it('registers a pending number with Meta before marking it connected', async () => {
-    persistedAccount = { ...account, status: 'PENDING_REGISTRATION' };
+  it('registers an unverified number with Meta before marking it connected', async () => {
+    persistedAccount = { ...account, status: 'UNVERIFIED' };
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     await expect(
       service.registerPhoneNumber('hotel-id', '654321'),
@@ -179,6 +146,7 @@ describe('WhatsappService', () => {
       'meta-token',
       '654321',
     );
+    expect(log).not.toHaveBeenCalled();
     expect(update).toHaveBeenCalledWith({
       where: { id: 'account-id' },
       data: {
@@ -188,8 +156,8 @@ describe('WhatsappService', () => {
     });
   });
 
-  it('does not register a number before ownership verification', async () => {
-    findFirst.mockResolvedValue(account);
+  it('does not register a number that is already connected', async () => {
+    persistedAccount = { ...account, status: 'CONNECTED' };
 
     await expect(
       service.registerPhoneNumber('hotel-id', '654321'),
@@ -197,9 +165,9 @@ describe('WhatsappService', () => {
     expect(meta.registerPhoneNumber).not.toHaveBeenCalled();
   });
 
-  it('maps an unexpected active account status to error', async () => {
+  it('treats an unknown account status as not connected', async () => {
     findFirst.mockResolvedValue({
-      status: 'ERROR',
+      status: 'UNKNOWN',
       wabaId: 'waba-id',
       displayPhoneNumber: null,
       verifiedName: null,
@@ -207,8 +175,7 @@ describe('WhatsappService', () => {
     });
 
     await expect(service.getStatus('hotel-id')).resolves.toMatchObject({
-      status: 'error',
-      wabaId: 'waba-id',
+      status: 'not_connected',
     });
   });
 
@@ -222,10 +189,10 @@ describe('WhatsappService', () => {
     expect(updateMany).toHaveBeenCalledWith({
       where: {
         hotelId: 'hotel-id',
-        status: { not: 'DISCONNECTED' },
+        status: { not: 'NOT_CONNECTED' },
       },
       data: {
-        status: 'DISCONNECTED',
+        status: 'NOT_CONNECTED',
         accessTokenEncrypted: null,
       },
     });

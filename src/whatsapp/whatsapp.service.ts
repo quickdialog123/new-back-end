@@ -9,12 +9,7 @@ import { MetaGraphClient } from './meta/meta-graph.client.js';
 import { decryptMetaToken } from './meta/meta-token.util.js';
 
 export type WhatsAppStatusDto = {
-  status:
-    | 'connected'
-    | 'not_connected'
-    | 'pending_verification'
-    | 'pending_registration'
-    | 'error';
+  status: 'connected' | 'not_connected' | 'unverified';
   wabaId: string | null;
   phoneNumber: string | null;
   displayName: string | null;
@@ -38,7 +33,7 @@ export class WhatsappService {
       orderBy: { updatedAt: 'desc' },
     });
 
-    if (!account || account.status === 'DISCONNECTED') {
+    if (!account || account.status === 'NOT_CONNECTED') {
       return this.notConnected();
     }
 
@@ -59,55 +54,11 @@ export class WhatsappService {
     };
   }
 
-  async requestPhoneVerificationCode(
-    hotelId: string,
-    method: 'SMS' | 'VOICE',
-  ): Promise<WhatsAppStatusDto> {
-    const account = await this.getAccountInStatus(
-      hotelId,
-      'PENDING_VERIFICATION',
-    );
-
-    await this.meta.requestPhoneVerificationCode(
-      account.phoneNumberId,
-      this.accessToken(account.accessTokenEncrypted),
-      method,
-    );
-
-    return this.getStatus(hotelId);
-  }
-
-  async verifyPhoneNumberCode(
-    hotelId: string,
-    code: string,
-  ): Promise<WhatsAppStatusDto> {
-    const account = await this.getAccountInStatus(
-      hotelId,
-      'PENDING_VERIFICATION',
-    );
-
-    await this.meta.verifyPhoneNumberCode(
-      account.phoneNumberId,
-      this.accessToken(account.accessTokenEncrypted),
-      code,
-    );
-
-    await this.prisma.whatsAppAccount.update({
-      where: { id: account.id },
-      data: { status: 'PENDING_REGISTRATION' },
-    });
-
-    return this.getStatus(hotelId);
-  }
-
   async registerPhoneNumber(
     hotelId: string,
     pin: string,
   ): Promise<WhatsAppStatusDto> {
-    const account = await this.getAccountInStatus(
-      hotelId,
-      'PENDING_REGISTRATION',
-    );
+    const account = await this.getAccountInStatus(hotelId, 'UNVERIFIED');
 
     await this.meta.registerPhoneNumber(
       account.phoneNumberId,
@@ -130,10 +81,10 @@ export class WhatsappService {
     await this.prisma.whatsAppAccount.updateMany({
       where: {
         hotelId,
-        status: { not: 'DISCONNECTED' },
+        status: { not: 'NOT_CONNECTED' },
       },
       data: {
-        status: 'DISCONNECTED',
+        status: 'NOT_CONNECTED',
         accessTokenEncrypted: null,
       },
     });
@@ -156,7 +107,7 @@ export class WhatsappService {
 
   private async getAccountInStatus(hotelId: string, status: string) {
     const account = await this.prisma.whatsAppAccount.findFirst({
-      where: { hotelId, status: { not: 'DISCONNECTED' } },
+      where: { hotelId, status: { not: 'NOT_CONNECTED' } },
       orderBy: { updatedAt: 'desc' },
     });
 
@@ -193,12 +144,10 @@ export class WhatsappService {
     switch (status) {
       case 'CONNECTED':
         return 'connected';
-      case 'PENDING_VERIFICATION':
-        return 'pending_verification';
-      case 'PENDING_REGISTRATION':
-        return 'pending_registration';
+      case 'UNVERIFIED':
+        return 'unverified';
       default:
-        return 'error';
+        return 'not_connected';
     }
   }
 }

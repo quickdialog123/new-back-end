@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -34,9 +35,10 @@ describe('MetaGraphClient', () => {
     vi.unstubAllGlobals();
   });
 
-  function jsonResponse(data: unknown, ok = true) {
+  function jsonResponse(data: unknown, ok = true, status = 200) {
     return {
       ok,
+      status,
       json: vi.fn().mockResolvedValue(data),
     };
   }
@@ -102,48 +104,13 @@ describe('MetaGraphClient', () => {
     );
   });
 
-  it('requests and verifies a phone code and registers the phone with a PIN', async () => {
-    fetchMock
-      .mockResolvedValueOnce(jsonResponse({ success: true }))
-      .mockResolvedValueOnce(jsonResponse({ success: true }))
-      .mockResolvedValueOnce(jsonResponse({ success: true }));
+  it('registers a phone with the six-digit WhatsApp PIN', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ success: true }));
 
-    await client.requestPhoneVerificationCode(
-      'phone-id',
-      'access-token',
-      'SMS',
-    );
-    await client.verifyPhoneNumberCode('phone-id', 'access-token', '123456');
     await client.registerPhoneNumber('phone-id', 'access-token', '654321');
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      'https://graph.facebook.com/v26.0/phone-id/request_code',
-      expect.objectContaining({
-        method: 'POST',
-        headers: {
-          authorization: 'Bearer access-token',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({ code_method: 'SMS', language: 'en_US' }),
-        signal: expect.any(AbortSignal),
-      }),
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      'https://graph.facebook.com/v26.0/phone-id/verify_code',
-      expect.objectContaining({
-        method: 'POST',
-        headers: {
-          authorization: 'Bearer access-token',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({ code: '123456' }),
-        signal: expect.any(AbortSignal),
-      }),
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      3,
       'https://graph.facebook.com/v26.0/phone-id/register',
       expect.objectContaining({
         method: 'POST',
@@ -163,26 +130,48 @@ describe('MetaGraphClient', () => {
   it('encodes Meta asset IDs as single path segments', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ success: true }));
 
-    await client.requestPhoneVerificationCode(
-      'phone/id?unexpected=query',
-      'access-token',
-      'SMS',
+    await client.registerPhoneNumber(
+      'phone/id?unexpected=query', 'access-token', '123456',
     );
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://graph.facebook.com/v26.0/phone%2Fid%3Funexpected%3Dquery/request_code',
+      'https://graph.facebook.com/v26.0/phone%2Fid%3Funexpected%3Dquery/register',
       expect.any(Object),
     );
   });
 
   it('does not expose Meta response details when the Graph API rejects a call', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
     fetchMock.mockResolvedValue(
-      jsonResponse({ error: { message: 'secret provider details' } }, false),
+      jsonResponse(
+        {
+          error: {
+            message: 'secret provider details',
+            type: 'OAuthException',
+            code: 190,
+            error_subcode: 458,
+          },
+        },
+        false,
+        400,
+      ),
     );
 
     await expect(
       client.registerPhoneNumber('phone-id', 'token', '123456'),
     ).rejects.toThrow('Meta WhatsApp API request failed');
+    expect(warn).toHaveBeenCalledWith(
+      'Meta WhatsApp API request failed',
+      expect.objectContaining({
+        status: 400,
+        errorType: 'OAuthException',
+        errorCode: 190,
+        errorSubcode: 458,
+      }),
+    );
+    expect(warn.mock.calls.flat().join(' ')).not.toContain(
+      'secret provider details',
+    );
   });
 
   it('subscribes the app and propagates Meta errors', async () => {

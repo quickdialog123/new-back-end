@@ -12,8 +12,6 @@ describe('WhatsappController', () => {
   const whatsappService = {
     getStatus: vi.fn(),
     disconnect: vi.fn(),
-    requestPhoneVerificationCode: vi.fn(),
-    verifyPhoneNumberCode: vi.fn(),
     registerPhoneNumber: vi.fn(),
   };
   const user = {
@@ -49,39 +47,16 @@ describe('WhatsappController', () => {
     expect(whatsappService.disconnect).toHaveBeenCalledWith('hotel-id');
   });
 
-  it('routes verification and registration actions to the authenticated hotel', async () => {
-    const request = { method: 'SMS' as const };
-    const verify = { code: '123456' };
+  it('routes PIN registration to the authenticated hotel', async () => {
     const register = { pin: '654321' };
-
-    whatsappService.requestPhoneVerificationCode.mockResolvedValue({
-      status: 'pending_verification',
-    });
-    whatsappService.verifyPhoneNumberCode.mockResolvedValue({
-      status: 'pending_registration',
-    });
     whatsappService.registerPhoneNumber.mockResolvedValue({
       status: 'connected',
     });
 
     await expect(
-      controller.requestPhoneVerificationCode(user as never, request),
-    ).resolves.toMatchObject({ status: 'pending_verification' });
-    await expect(
-      controller.verifyPhoneNumberCode(user as never, verify),
-    ).resolves.toMatchObject({ status: 'pending_registration' });
-    await expect(
       controller.registerPhoneNumber(user as never, register),
     ).resolves.toMatchObject({ status: 'connected' });
 
-    expect(whatsappService.requestPhoneVerificationCode).toHaveBeenCalledWith(
-      'hotel-id',
-      'SMS',
-    );
-    expect(whatsappService.verifyPhoneNumberCode).toHaveBeenCalledWith(
-      'hotel-id',
-      '123456',
-    );
     expect(whatsappService.registerPhoneNumber).toHaveBeenCalledWith(
       'hotel-id',
       '654321',

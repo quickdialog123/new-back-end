@@ -1,16 +1,16 @@
 model WhatsAppAccount {
-  id                   String    @id @default(uuid())
+  id                   String                @id @default(uuid())
   hotelId              String
-  wabaId               String    @unique
-  phoneNumberId        String    @unique
+  wabaId               String                @unique
+  phoneNumberId        String                @unique
   businessId           String?
   displayPhoneNumber   String?
   verifiedName         String?
   accessTokenEncrypted String?
-  status               String    @default("CONNECTED")
-  connectedAt          DateTime? @default(now())
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  status               WhatsAppAccountStatus @default(NOT_CONNECTED)
+  connectedAt          DateTime?             @default(now())
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 
   hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Restrict)
 
