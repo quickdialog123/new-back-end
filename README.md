@@ -160,6 +160,23 @@ Successful responses never include hotel tokens or owner password hashes. Deacti
 
 There is no reactivation endpoint. `PATCH /api/hotels/:id` cannot change a hotel's `active` state.
 
+## WhatsApp connection
+
+WhatsApp connections are hotel-scoped and can be managed by an authenticated hotel owner. Embedded Signup is completed through `POST /api/whatsapp/embedded-signup/complete`; the backend exchanges its code, validates the selected WABA and phone number, subscribes the app, and stores the Meta access token encrypted.
+
+After Embedded Signup, the account is saved as `unverified` until the user submits the six-digit WhatsApp PIN:
+
+- `unverified`: Embedded Signup completed; PIN registration is still required.
+- `connected`: Meta's register endpoint accepted the number and PIN.
+- `not_connected`: no active connection exists.
+
+The frontend should prompt for a PIN whenever status is `unverified`. Submit it using:
+
+- `POST /api/whatsapp/register` with `{ "pin": "123456" }` to register the phone number with Cloud API. A successful response moves the connection to `connected`.
+- `GET /api/whatsapp/status` to read the current state.
+
+The API does not persist the PIN. Meta credentials and tokens remain server-side; the token is stored encrypted and is never included in status responses.
+
 ## Validation
 
 Request validation uses Zod through Nest's built-in `StandardSchemaValidationPipe`.

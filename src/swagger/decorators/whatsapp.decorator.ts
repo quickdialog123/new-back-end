@@ -8,6 +8,7 @@ import {
 
 import {
   completeEmbeddedSignupRequestSwaggerSchema,
+  registerPhoneNumberSwaggerSchema,
   whatsappStatusSwaggerSchema,
 } from '../schemas/whatsapp.swagger.js';
 import {
@@ -61,5 +62,28 @@ export function ApiCompleteEmbeddedSignupDocs() {
       'WhatsApp connection could not be completed',
     ),
     ApiErrorResponse(HttpStatus.NOT_FOUND, 'Hotel not found'),
+  );
+}
+
+export function ApiRegisterWhatsAppPhoneDocs() {
+  return applyDecorators(
+    protectedResponses(),
+    ApiOperation({
+      summary: 'Register an unverified phone number with WhatsApp Cloud API',
+    }),
+    ApiBody({ schema: registerPhoneNumberSwaggerSchema }),
+    ApiResponse({
+      status: HttpStatus.CREATED,
+      schema: whatsappStatusSwaggerSchema,
+    }),
+    ApiErrorResponse(
+      HttpStatus.BAD_REQUEST,
+      'WhatsApp connection is not awaiting PIN registration',
+    ),
+    ApiErrorResponse(HttpStatus.NOT_FOUND, 'WhatsApp connection not found'),
+    ApiErrorResponse(
+      HttpStatus.BAD_GATEWAY,
+      'Meta WhatsApp API request failed',
+    ),
   );
 }

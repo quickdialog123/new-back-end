@@ -6,15 +6,25 @@ import {
   type NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { AppModule } from '@quickdialog/app.module.js';
 import { AuthService } from '@quickdialog/auth/auth.service.js';
 import { createValidationException } from '@quickdialog/common/errors/validation-exception.factory.js';
 import { PrismaService } from '@quickdialog/database/prisma.service.js';
+import { MetaGraphClient } from '@quickdialog/whatsapp/meta/meta-graph.client.js';
+import { encryptMetaToken } from '@quickdialog/whatsapp/meta/meta-token.util.js';
 
 const notConnectedStatus = {
-  status: 'not_connected',
+  status: 'NOT_CONNECTED',
   wabaId: null,
   phoneNumber: null,
   displayName: null,
@@ -29,11 +39,15 @@ describe('WhatsApp HTTP integration', () => {
   let app: NestFastifyApplication;
   let authService: AuthService;
   let prisma: PrismaService;
+  const meta = {
+    registerPhoneNumber: vi.fn().mockResolvedValue({ success: true }),
+  };
 
   beforeAll(async () => {
-    moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
+    moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(MetaGraphClient)
+      .useValue(meta)
+      .compile();
     app = moduleRef.createNestApplication<NestFastifyApplication>(
       new FastifyAdapter(),
     );
@@ -143,6 +157,88 @@ describe('WhatsApp HTTP integration', () => {
     expect(response.body).not.toContain('encrypted-token');
   });
 
+  it('reports an unverified account while awaiting its registration PIN', async () => {
+    const { hotelId, authorization } = await createOwnerAuthorization();
+    await prisma.whatsAppAccount.create({
+      data: {
+        hotelId,
+        wabaId: 'pending-waba-id',
+        phoneNumberId: 'pending-phone-id',
+        accessTokenEncrypted: 'encrypted-token',
+        status: 'UNVERIFIED',
+        connectedAt: null,
+      },
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/whatsapp/status',
+      headers: headers(authorization),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      status: 'unverified',
+      wabaId: 'pending-waba-id',
+      connectedAt: null,
+    });
+  });
+
+  it('records when the WhatsApp account row was created', async () => {
+    const { hotelId } = await createOwnerAuthorization();
+    const account = await prisma.whatsAppAccount.create({
+      data: {
+        hotelId,
+        wabaId: 'created-at-waba-id',
+        phoneNumberId: 'created-at-phone-id',
+        status: 'UNVERIFIED',
+        connectedAt: null,
+      },
+    });
+
+    const persistedAccount = await prisma.whatsAppAccount.findUniqueOrThrow({
+      where: { id: account.id },
+    });
+
+    expect(persistedAccount.createdAt).toBeInstanceOf(Date);
+  });
+
+  it('registers an unverified phone directly with its PIN before reporting it connected', async () => {
+    const { hotelId, authorization } = await createOwnerAuthorization();
+    const config = app.get(ConfigService);
+    await prisma.whatsAppAccount.create({
+      data: {
+        hotelId,
+        wabaId: 'workflow-waba-id',
+        phoneNumberId: 'workflow-phone-id',
+        accessTokenEncrypted: encryptMetaToken(
+          'workflow-meta-token',
+          config.getOrThrow<string>('meta.tokenEncryptionKey'),
+        ),
+        status: 'UNVERIFIED',
+        connectedAt: null,
+      },
+    });
+
+    const register = await app.inject({
+      method: 'POST',
+      url: '/api/whatsapp/register',
+      headers: headers(authorization),
+      payload: { pin: '654321' },
+    });
+    expect(register.statusCode).toBe(201);
+    expect(register.json()).toMatchObject({
+      status: 'connected',
+      connectedAt: expect.any(String),
+    });
+
+    expect(meta.registerPhoneNumber).toHaveBeenCalledWith(
+      'workflow-phone-id',
+      'workflow-meta-token',
+      '654321',
+    );
+  });
+
   it('disconnects an account without deleting its persisted metadata', async () => {
     const { hotelId, authorization } = await createOwnerAuthorization();
     const account = await prisma.whatsAppAccount.create({
@@ -174,7 +270,7 @@ describe('WhatsApp HTTP integration', () => {
       phoneNumberId: 'phone-id',
       displayPhoneNumber: '+15551234567',
       verifiedName: 'QuickDialog Hotel',
-      status: 'DISCONNECTED',
+      status: 'NOT_CONNECTED',
       accessTokenEncrypted: null,
     });
   });

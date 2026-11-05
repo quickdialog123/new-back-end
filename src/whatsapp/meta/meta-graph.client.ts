@@ -5,6 +5,7 @@ import type {
   MetaAccessTokenResponse,
   MetaClientBusinessResponse,
   MetaPhoneNumbersResponse,
+  MetaRegisterPhoneNumberResponse,
 } from './meta.types.js';
 
 @Injectable()
@@ -82,5 +83,26 @@ export class MetaGraphClient {
         authorization: `Bearer ${accessToken}`,
       },
     });
+  }
+
+  async registerPhoneNumber(
+    phoneNumberId: string,
+    accessToken: string,
+    pin: string,
+  ): Promise<MetaRegisterPhoneNumberResponse> {
+    const version = this.config.getOrThrow<string>('meta.graphVersion');
+
+    const { data } = await this.http.post<MetaRegisterPhoneNumberResponse>(
+      `/${version}/${encodeURIComponent(phoneNumberId)}/register`,
+      {
+        headers: { authorization: `Bearer ${accessToken}` },
+        json: {
+          messaging_product: 'whatsapp',
+          pin,
+        },
+      },
+    );
+
+    return data;
   }
 }
