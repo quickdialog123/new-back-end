@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -29,19 +30,6 @@ export class EmbeddedSignupService {
       throw new NotFoundException('Hotel not found');
     }
 
-    const current = await this.prisma.whatsAppAccount.findFirst({
-      where: {
-        hotelId,
-        status: { not: 'DISCONNECTED' },
-      },
-    });
-
-    if (current) {
-      throw new BadRequestException(
-        'Disconnect the current WhatsApp account before connecting another one',
-      );
-    }
-
     const accessToken = await this.meta.exchangeCode(input.code);
 
     const [businessId, phones] = await Promise.all([
@@ -56,7 +44,6 @@ export class EmbeddedSignupService {
         'Phone number does not belong to the selected WhatsApp account',
       );
     }
-
     const matches = await this.prisma.whatsAppAccount.findMany({
       where: {
         OR: [{ wabaId: input.wabaId }, { phoneNumberId: input.phoneNumberId }],
@@ -64,39 +51,40 @@ export class EmbeddedSignupService {
     });
 
     if (matches.some((account) => account.hotelId !== hotelId)) {
-      throw new BadRequestException(
+      throw new ConflictException(
         'This WhatsApp account is already linked to another hotel',
       );
     }
-
-    if (matches.some((account) => account.status !== 'DISCONNECTED')) {
-      throw new BadRequestException('This WhatsApp account is already active');
-    }
-
-    const matchingPhone = matches.find(
-      (account) => account.phoneNumberId === input.phoneNumberId,
-    );
 
     const matchingWaba = matches.find(
       (account) => account.wabaId === input.wabaId,
     );
 
-    if (matchingPhone && matchingWaba && matchingPhone.id !== matchingWaba.id) {
-      throw new BadRequestException(
-        'Conflicting WhatsApp account records. Resolve the existing associations first.',
+    const matchingPhone = matches.find(
+      (account) => account.phoneNumberId === input.phoneNumberId,
+    );
+
+    if (matchingWaba && matchingPhone && matchingWaba.id !== matchingPhone.id) {
+      throw new ConflictException(
+        'WhatsApp account identifiers conflict with existing records',
       );
     }
 
-    const previous = await this.prisma.whatsAppAccount.findFirst({
-      where: {
-        hotelId,
-        status: 'DISCONNECTED',
-      },
-      orderBy: { updatedAt: 'desc' },
-    });
+    const existingAccount = matchingWaba ?? matchingPhone;
 
-    const existingAccount = matchingPhone ?? matchingWaba ?? previous;
+    if (
+      matches.some(
+        (account) =>
+          account.id !== existingAccount?.id &&
+          account.phoneNumberId === input.phoneNumberId,
+      )
+    ) {
+      throw new ConflictException(
+        'Phone number is already linked to another WhatsApp account',
+      );
+    }
 
+    // Subscribe before saving the connection.
     await this.meta.subscribeApp(input.wabaId, accessToken);
 
     const encryptionKey = this.config.getOrThrow<string>(
@@ -110,23 +98,36 @@ export class EmbeddedSignupService {
       displayPhoneNumber: phone.display_phone_number,
       verifiedName: phone.verified_name,
       accessTokenEncrypted: encryptMetaToken(accessToken, encryptionKey),
-      status: 'CONNECTED',
+      status: 'CONNECTED' as const,
+      connectedAt: new Date(),
     };
 
-    if (existingAccount) {
-      await this.prisma.whatsAppAccount.update({
-        where: { id: existingAccount.id },
-        data,
-      });
-    } else {
-      await this.prisma.whatsAppAccount.create({
-        data: {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.whatsAppAccount.updateMany({
+        where: {
           hotelId,
-          ...data,
-          connectedAt: new Date(),
+          status: { not: 'DISCONNECTED' },
+          ...(existingAccount ? { id: { not: existingAccount.id } } : {}),
+        },
+        data: {
+          status: 'DISCONNECTED',
         },
       });
-    }
+
+      if (existingAccount) {
+        await tx.whatsAppAccount.update({
+          where: { id: existingAccount.id },
+          data,
+        });
+      } else {
+        await tx.whatsAppAccount.create({
+          data: {
+            hotelId,
+            ...data,
+          },
+        });
+      }
+    });
 
     return this.whatsappService.getStatus(hotelId);
   }

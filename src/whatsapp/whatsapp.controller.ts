@@ -11,6 +11,7 @@ import {
 import { SWAGGER_TAGS } from '@quickdialog/swagger/swagger.tags.js';
 import { WhatsappService } from './whatsapp.service.js';
 import { MetaGraphClient } from './meta/meta-graph.client.js';
+import { Public } from '@quickdialog/common/decorators/public.decorator.js';
 
 @ApiTags(SWAGGER_TAGS.WHATSAPP.ROOT)
 @Controller('whatsapp')
@@ -21,14 +22,16 @@ export class WhatsappController {
   ) {}
 
   @Get('status')
-  @Roles(UserRole.OWNER)
+  @Public()
+  //@Roles(UserRole.OWNER)
   @ApiWhatsAppStatusDocs()
   getStatus(@CurrentUser() user: AuthenticatedUser) {
     return this.whatsappService.getStatus(this.hotelId(user));
   }
 
   @Post('disconnect')
-  @Roles(UserRole.OWNER)
+  //@Roles(UserRole.OWNER)
+  @Public()
   @ApiDisconnectWhatsAppDocs()
   disconnect(@CurrentUser() user: AuthenticatedUser) {
     return this.whatsappService.disconnect(this.hotelId(user));

@@ -11,6 +11,7 @@ import { Roles } from '@quickdialog/common/decorators/roles.decorator.js';
 import { UserRole } from '@quickdialog/generated/prisma/client.js';
 import { ApiCompleteEmbeddedSignupDocs } from '@quickdialog/swagger/decorators/whatsapp.decorator.js';
 import { SWAGGER_TAGS } from '@quickdialog/swagger/swagger.tags.js';
+import { Public } from '@quickdialog/common/decorators/public.decorator.js';
 
 @ApiTags(SWAGGER_TAGS.WHATSAPP.EMBEDDED_SIGNUP.ROOT)
 @Controller('whatsapp/embedded-signup')
@@ -18,7 +19,8 @@ export class EmbeddedSignupController {
   constructor(private readonly embeddedSignupService: EmbeddedSignupService) {}
 
   @Post('complete')
-  @Roles(UserRole.OWNER)
+  @Public()
+  //@Roles(UserRole.OWNER)
   @ApiCompleteEmbeddedSignupDocs()
   complete(
     @CurrentUser() user: AuthenticatedUser,
