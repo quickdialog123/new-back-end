@@ -17,6 +17,7 @@ export class MetaGraphClient {
   ) {}
 
   async exchangeCode(code: string): Promise<string> {
+    const version = this.config.getOrThrow<string>('meta.graphVersion');
     const appId = this.config.getOrThrow<string>('meta.appId');
     const appSecret = this.config.getOrThrow<string>('meta.appSecret');
     const params = new URLSearchParams({
@@ -24,20 +25,30 @@ export class MetaGraphClient {
       client_secret: appSecret,
       code,
     });
-    const data = await this.request<MetaAccessTokenResponse>(
-      `/oauth/access_token?${params.toString()}`,
-    );
+    try {
+      const { data } = await this.http.get<MetaAccessTokenResponse>(
+        `/${version}/oauth/access_token?${params.toString()}`,
+      );
 
-    return data.access_token;
+      return data.access_token;
+    } catch (error) {
+      this.handleRequestError(error);
+    }
   }
 
   async getClientBusinessId(accessToken: string): Promise<string> {
-    const data = await this.request<MetaClientBusinessResponse>(
-      '/me?fields=client_business_id',
-      { accessToken },
-    );
+    const version = this.config.getOrThrow<string>('meta.graphVersion');
 
-    return data.client_business_id;
+    try {
+      const { data } = await this.http.get<MetaClientBusinessResponse>(
+        `/${version}/me?fields=client_business_id`,
+        { headers: { authorization: `Bearer ${accessToken}` } },
+      );
+
+      return data.client_business_id;
+    } catch (error) {
+      this.handleRequestError(error);
+    }
   }
 
   async getPhoneNumbers(
@@ -52,12 +63,18 @@ export class MetaGraphClient {
       'code_verification_status',
       'name_status',
     ].join(',');
-    const data = await this.request<MetaPhoneNumbersResponse>(
-      `/${encodeURIComponent(wabaId)}/phone_numbers?fields=${fields}`,
-      { accessToken },
-    );
+    const version = this.config.getOrThrow<string>('meta.graphVersion');
 
-    return data.data;
+    try {
+      const { data } = await this.http.get<MetaPhoneNumbersResponse>(
+        `/${version}/${encodeURIComponent(wabaId)}/phone_numbers?fields=${fields}`,
+        { headers: { authorization: `Bearer ${accessToken}` } },
+      );
+
+      return data.data;
+    } catch (error) {
+      this.handleRequestError(error);
+    }
   }
 
   async registerPhoneNumber(
@@ -65,87 +82,73 @@ export class MetaGraphClient {
     accessToken: string,
     pin: string,
   ): Promise<void> {
-    await this.request(`/${encodeURIComponent(phoneNumberId)}/register`, {
-      method: 'POST',
-      accessToken,
-      body: {
-        messaging_product: 'whatsapp',
-        pin,
-      },
-    });
+    const version = this.config.getOrThrow<string>('meta.graphVersion');
+
+    try {
+      await this.http.post(
+        `/${version}/${encodeURIComponent(phoneNumberId)}/register`,
+        {
+          headers: { authorization: `Bearer ${accessToken}` },
+          json: {
+            messaging_product: 'whatsapp',
+            pin,
+          },
+        },
+      );
+    } catch (error) {
+      this.handleRequestError(error);
+    }
   }
 
   async subscribeApp(wabaId: string, accessToken: string): Promise<void> {
-    await this.request(`/${encodeURIComponent(wabaId)}/subscribed_apps`, {
-      method: 'POST',
-      accessToken,
-    });
-  }
-
-  private async request<T>(
-    path: string,
-    options: {
-      method?: 'GET' | 'POST';
-      accessToken?: string;
-      body?: Record<string, string>;
-    } = {},
-  ): Promise<T> {
     const version = this.config.getOrThrow<string>('meta.graphVersion');
-    const headers: Record<string, string> = {};
-
-    if (options.accessToken) {
-      headers.authorization = `Bearer ${options.accessToken}`;
-    }
 
     try {
-      const url = `/${version}${path}`;
-      const responseOptions = {
-        headers,
-        ...(options.body && { json: options.body }),
-      };
-      const response =
-        options.method === 'POST'
-          ? await this.http.post<T>(url, responseOptions)
-          : await this.http.get<T>(url, responseOptions);
-
-      return response.data;
+      await this.http.post(
+        `/${version}/${encodeURIComponent(wabaId)}/subscribed_apps`,
+        { headers: { authorization: `Bearer ${accessToken}` } },
+      );
     } catch (error) {
-      if (error instanceof HttpResponseError) {
-        const payload: unknown = error.body;
-        let errorDetails: Record<string, unknown> = {};
+      this.handleRequestError(error);
+    }
+  }
 
-        if (
-          typeof payload === 'object' &&
-          payload !== null &&
-          'error' in payload &&
-          typeof payload.error === 'object' &&
-          payload.error !== null
-        ) {
-          const metaError = payload.error as Record<string, unknown>;
-          errorDetails = {
-            ...(typeof metaError.type === 'string' && {
-              errorType: metaError.type,
-            }),
-            ...(typeof metaError.code === 'number' && {
-              errorCode: metaError.code,
-            }),
-            ...(typeof metaError.error_subcode === 'number' && {
-              errorSubcode: metaError.error_subcode,
-            }),
-          };
-        }
+  private handleRequestError(error: unknown): never {
+    if (error instanceof HttpResponseError) {
+      const payload: unknown = error.body;
+      let errorDetails: Record<string, unknown> = {};
 
-        this.logger.warn('Meta WhatsApp API request failed', {
-          status: error.status,
-          ...errorDetails,
-        });
-        throw new BadGatewayException('Meta WhatsApp API request failed');
+      if (
+        typeof payload === 'object' &&
+        payload !== null &&
+        'error' in payload &&
+        typeof payload.error === 'object' &&
+        payload.error !== null
+      ) {
+        const metaError = payload.error as Record<string, unknown>;
+        errorDetails = {
+          ...(typeof metaError.type === 'string' && {
+            errorType: metaError.type,
+          }),
+          ...(typeof metaError.code === 'number' && {
+            errorCode: metaError.code,
+          }),
+          ...(typeof metaError.error_subcode === 'number' && {
+            errorSubcode: metaError.error_subcode,
+          }),
+        };
       }
 
-      this.logger.warn('Unable to reach Meta WhatsApp API', {
-        errorType: error instanceof Error ? error.name : 'UnknownError',
+      this.logger.warn('Meta WhatsApp API request failed', {
+        status: error.status,
+        ...errorDetails,
       });
-      throw new BadGatewayException('Unable to reach Meta WhatsApp API');
+      throw new BadGatewayException('Meta WhatsApp API request failed');
     }
+
+    this.logger.warn('Unable to reach Meta WhatsApp API', {
+      errorType: error instanceof Error ? error.name : 'UnknownError',
+    });
+    throw new BadGatewayException('Unable to reach Meta WhatsApp API');
   }
 }

@@ -30,3 +30,8 @@ export type MetaSendMessageResponse = {
     id: string;
   }>;
 };
+
+export type WhatsappStatusResponse = {
+  status: 'connected' | 'disconnected' | 'pending';
+  phoneNumber?: MetaPhoneNumber;
+};
