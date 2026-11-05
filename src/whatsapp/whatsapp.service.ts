@@ -7,9 +7,10 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@quickdialog/database/prisma.service.js';
 import { MetaGraphClient } from './meta/meta-graph.client.js';
 import { decryptMetaToken } from './meta/meta-token.util.js';
+import { WhatsAppAccountStatus } from '@quickdialog/generated/prisma/enums.js';
 
 export type WhatsAppStatusDto = {
-  status: 'connected' | 'not_connected' | 'unverified';
+  status: WhatsAppAccountStatus;
   wabaId: string | null;
   phoneNumber: string | null;
   displayName: string | null;
@@ -37,7 +38,7 @@ export class WhatsappService {
       return this.notConnected();
     }
 
-    const status = this.toPublicStatus(account.status);
+    const status = account.status.toLocaleLowerCase() as WhatsAppAccountStatus;
 
     return {
       status,
@@ -94,7 +95,7 @@ export class WhatsappService {
 
   private notConnected(): WhatsAppStatusDto {
     return {
-      status: 'not_connected',
+      status: WhatsAppAccountStatus.NOT_CONNECTED,
       wabaId: null,
       phoneNumber: null,
       displayName: null,
@@ -138,16 +139,5 @@ export class WhatsappService {
     );
 
     return decryptMetaToken(encryptedToken, encryptionKey);
-  }
-
-  private toPublicStatus(status: string): WhatsAppStatusDto['status'] {
-    switch (status) {
-      case 'CONNECTED':
-        return 'connected';
-      case 'UNVERIFIED':
-        return 'unverified';
-      default:
-        return 'not_connected';
-    }
   }
 }
