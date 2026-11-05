@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { HttpClientModule } from '@nestjs/http-client';
 import { EmbeddedSignupController } from './embedded-signup/embedded-signup.controller.js';
 import { EmbeddedSignupService } from './embedded-signup/embedded-signup.service.js';
 import { MetaGraphClient } from './meta/meta-graph.client.js';
@@ -9,6 +10,12 @@ import { WebhookService } from './webhooks/webhook.service.js';
 import { WebhookSignatureGuard } from './webhooks/webhook-signature.guard.js';
 
 @Module({
+  imports: [
+    HttpClientModule.register({
+      baseUrl: 'https://graph.facebook.com',
+      timeout: '10s',
+    }),
+  ],
   controllers: [
     WhatsappController,
     EmbeddedSignupController,

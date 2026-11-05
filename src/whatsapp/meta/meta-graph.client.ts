@@ -1,5 +1,6 @@
 import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { HttpClient, HttpResponseError } from '@nestjs/http-client';
 import type {
   MetaAccessTokenResponse,
   MetaClientBusinessResponse,
@@ -10,7 +11,10 @@ import type {
 export class MetaGraphClient {
   private readonly logger = new Logger(MetaGraphClient.name);
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly config: ConfigService,
+  ) {}
 
   async exchangeCode(code: string): Promise<string> {
     const appId = this.config.getOrThrow<string>('meta.appId');
@@ -93,28 +97,23 @@ export class MetaGraphClient {
       headers.authorization = `Bearer ${options.accessToken}`;
     }
 
-    if (options.body) {
-      headers['content-type'] = 'application/json';
-    }
-
-    let response: Response;
-
     try {
-      response = await fetch(`https://graph.facebook.com/${version}${path}`, {
-        method: options.method,
+      const url = `/${version}${path}`;
+      const responseOptions = {
         headers,
-        signal: AbortSignal.timeout(10_000),
-        ...(options.body && { body: JSON.stringify(options.body) }),
-      });
-    } catch {
-      throw new BadGatewayException('Unable to reach Meta WhatsApp API');
-    }
+        ...(options.body && { json: options.body }),
+      };
+      const response =
+        options.method === 'POST'
+          ? await this.http.post<T>(url, responseOptions)
+          : await this.http.get<T>(url, responseOptions);
 
-    if (!response.ok) {
-      let errorDetails: Record<string, unknown> = {};
+      return response.data;
+    } catch (error) {
+      if (error instanceof HttpResponseError) {
+        const payload: unknown = error.body;
+        let errorDetails: Record<string, unknown> = {};
 
-      try {
-        const payload: unknown = await response.json();
         if (
           typeof payload === 'object' &&
           payload !== null &&
@@ -122,32 +121,31 @@ export class MetaGraphClient {
           typeof payload.error === 'object' &&
           payload.error !== null
         ) {
-          const error = payload.error as Record<string, unknown>;
+          const metaError = payload.error as Record<string, unknown>;
           errorDetails = {
-            ...(typeof error.type === 'string' && { errorType: error.type }),
-            ...(typeof error.code === 'number' && { errorCode: error.code }),
-            ...(typeof error.error_subcode === 'number' && {
-              errorSubcode: error.error_subcode,
+            ...(typeof metaError.type === 'string' && {
+              errorType: metaError.type,
+            }),
+            ...(typeof metaError.code === 'number' && {
+              errorCode: metaError.code,
+            }),
+            ...(typeof metaError.error_subcode === 'number' && {
+              errorSubcode: metaError.error_subcode,
             }),
           };
         }
-      } catch {
-        // Keep the public error generic if Meta returns an unreadable body.
+
+        this.logger.warn('Meta WhatsApp API request failed', {
+          status: error.status,
+          ...errorDetails,
+        });
+        throw new BadGatewayException('Meta WhatsApp API request failed');
       }
 
-      this.logger.warn('Meta WhatsApp API request failed', {
-        status: response.status,
-        ...errorDetails,
+      this.logger.warn('Unable to reach Meta WhatsApp API', {
+        errorType: error instanceof Error ? error.name : 'UnknownError',
       });
-      throw new BadGatewayException('Meta WhatsApp API request failed');
-    }
-
-    try {
-      return (await response.json()) as T;
-    } catch {
-      throw new BadGatewayException(
-        'Meta WhatsApp API returned an invalid response',
-      );
+      throw new BadGatewayException('Unable to reach Meta WhatsApp API');
     }
   }
 }
