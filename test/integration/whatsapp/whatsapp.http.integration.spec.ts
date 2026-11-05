@@ -24,7 +24,7 @@ import { MetaGraphClient } from '@quickdialog/whatsapp/meta/meta-graph.client.js
 import { encryptMetaToken } from '@quickdialog/whatsapp/meta/meta-token.util.js';
 
 const notConnectedStatus = {
-  status: 'not_connected',
+  status: 'NOT_CONNECTED',
   wabaId: null,
   phoneNumber: null,
   displayName: null,
@@ -40,7 +40,7 @@ describe('WhatsApp HTTP integration', () => {
   let authService: AuthService;
   let prisma: PrismaService;
   const meta = {
-    registerPhoneNumber: vi.fn().mockResolvedValue(undefined),
+    registerPhoneNumber: vi.fn().mockResolvedValue({ success: true }),
   };
 
   beforeAll(async () => {
@@ -270,7 +270,7 @@ describe('WhatsApp HTTP integration', () => {
       phoneNumberId: 'phone-id',
       displayPhoneNumber: '+15551234567',
       verifiedName: 'QuickDialog Hotel',
-        status: 'NOT_CONNECTED',
+      status: 'NOT_CONNECTED',
       accessTokenEncrypted: null,
     });
   });

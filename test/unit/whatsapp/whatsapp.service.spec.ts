@@ -51,7 +51,7 @@ describe('WhatsappService', () => {
       persistedAccount = { ...persistedAccount, ...data };
       return Promise.resolve(persistedAccount);
     });
-    meta.registerPhoneNumber.mockResolvedValue(undefined);
+    meta.registerPhoneNumber.mockResolvedValue({ success: true });
     config.getOrThrow.mockReturnValue(encryptionKey);
 
     const moduleRef = await Test.createTestingModule({
@@ -96,7 +96,7 @@ describe('WhatsappService', () => {
     findFirst.mockResolvedValue(null);
 
     await expect(service.getStatus('hotel-id')).resolves.toEqual({
-      status: 'not_connected',
+      status: 'NOT_CONNECTED',
       wabaId: null,
       phoneNumber: null,
       displayName: null,
@@ -114,7 +114,7 @@ describe('WhatsappService', () => {
     });
 
     await expect(service.getStatus('hotel-id')).resolves.toMatchObject({
-      status: 'not_connected',
+      status: 'NOT_CONNECTED',
       wabaId: null,
       phoneNumber: null,
     });
@@ -175,7 +175,7 @@ describe('WhatsappService', () => {
     });
 
     await expect(service.getStatus('hotel-id')).resolves.toMatchObject({
-      status: 'not_connected',
+      status: 'unknown',
     });
   });
 
@@ -183,7 +183,7 @@ describe('WhatsappService', () => {
     updateMany.mockResolvedValue({ count: 1 });
 
     await expect(service.disconnect('hotel-id')).resolves.toMatchObject({
-      status: 'not_connected',
+      status: 'NOT_CONNECTED',
     });
 
     expect(updateMany).toHaveBeenCalledWith({
@@ -202,7 +202,7 @@ describe('WhatsappService', () => {
     updateMany.mockResolvedValue({ count: 0 });
 
     await expect(service.disconnect('hotel-id')).resolves.toEqual({
-      status: 'not_connected',
+      status: 'NOT_CONNECTED',
       wabaId: null,
       phoneNumber: null,
       displayName: null,

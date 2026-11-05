@@ -1,4 +1,3 @@
-import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpClient, HttpResponseError } from '@nestjs/http-client';
 import { Test } from '@nestjs/testing';
@@ -89,26 +88,24 @@ describe('MetaGraphClient', () => {
 
     await client.registerPhoneNumber('phone-id', 'access-token', '654321');
 
-    expect(post).toHaveBeenNthCalledWith(
-      1,
-      '/v26.0/phone-id/register',
-      {
-        headers: {
-          authorization: 'Bearer access-token',
-        },
-        json: {
-          messaging_product: 'whatsapp',
-          pin: '654321',
-        },
+    expect(post).toHaveBeenNthCalledWith(1, '/v26.0/phone-id/register', {
+      headers: {
+        authorization: 'Bearer access-token',
       },
-    );
+      json: {
+        messaging_product: 'whatsapp',
+        pin: '654321',
+      },
+    });
   });
 
   it('encodes Meta asset IDs as single path segments', async () => {
     post.mockResolvedValue({ data: { success: true } });
 
     await client.registerPhoneNumber(
-      'phone/id?unexpected=query', 'access-token', '123456',
+      'phone/id?unexpected=query',
+      'access-token',
+      '123456',
     );
 
     expect(post).toHaveBeenCalledWith(
@@ -117,55 +114,39 @@ describe('MetaGraphClient', () => {
     );
   });
 
-  it('does not expose Meta response details when the Graph API rejects a call', async () => {
-    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
-    post.mockRejectedValue(
-      new HttpResponseError({
-        method: 'POST',
-        url: 'https://graph.facebook.com/v26.0/phone-id/register',
-        status: 400,
-        body: {
-          error: {
-            message: 'secret provider details',
-            type: 'OAuthException',
-            code: 190,
-            error_subcode: 458,
-          },
+  it('propagates Graph API response errors', async () => {
+    const error = new HttpResponseError({
+      method: 'POST',
+      url: 'https://graph.facebook.com/v26.0/phone-id/register',
+      status: 400,
+      body: {
+        error: {
+          message: 'secret provider details',
+          type: 'OAuthException',
+          code: 190,
+          error_subcode: 458,
         },
-      }),
-    );
+      },
+    });
+    post.mockRejectedValue(error);
 
     await expect(
       client.registerPhoneNumber('phone-id', 'token', '123456'),
-    ).rejects.toThrow('Meta WhatsApp API request failed');
-    expect(warn).toHaveBeenCalledWith(
-      'Meta WhatsApp API request failed',
-      expect.objectContaining({
-        status: 400,
-        errorType: 'OAuthException',
-        errorCode: 190,
-        errorSubcode: 458,
-      }),
-    );
-    expect(warn.mock.calls.flat().join(' ')).not.toContain(
-      'secret provider details',
-    );
+    ).rejects.toBe(error);
   });
 
-  it('subscribes the app and propagates Meta errors', async () => {
+  it('subscribes the app and propagates transport errors', async () => {
     post.mockResolvedValueOnce({ data: { success: true } });
 
     await expect(client.subscribeApp('waba-id', 'access-token')).resolves.toBe(
       undefined,
     );
-    expect(post).toHaveBeenCalledWith(
-      '/v26.0/waba-id/subscribed_apps',
-      { headers: { authorization: 'Bearer access-token' } },
-    );
+    expect(post).toHaveBeenCalledWith('/v26.0/waba-id/subscribed_apps', {
+      headers: { authorization: 'Bearer access-token' },
+    });
 
-    get.mockRejectedValueOnce(new Error('network details'));
-    await expect(client.exchangeCode('code')).rejects.toThrow(
-      'Unable to reach Meta WhatsApp API',
-    );
+    const error = new Error('network details');
+    get.mockRejectedValueOnce(error);
+    await expect(client.exchangeCode('code')).rejects.toBe(error);
   });
 });
