@@ -32,3 +32,5 @@ export type MetaSendMessageResponse = {
     id: string;
   }>;
 };
+
+export type MetaRegisterPhoneNumberResponse = { success: boolean };

@@ -21,7 +21,6 @@ import {
   registerPhoneNumberSchema,
   type RegisterPhoneNumberDTO,
 } from './schemas/whatsapp-verification.schema.js';
-import { Public } from '@quickdialog/common/decorators/public.decorator.js';
 
 @ApiTags(SWAGGER_TAGS.WHATSAPP.ROOT)
 @Controller('whatsapp')

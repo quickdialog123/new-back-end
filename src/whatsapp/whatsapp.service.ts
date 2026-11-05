@@ -8,6 +8,7 @@ import { PrismaService } from '@quickdialog/database/prisma.service.js';
 import { MetaGraphClient } from './meta/meta-graph.client.js';
 import { decryptMetaToken } from './meta/meta-token.util.js';
 import { WhatsAppAccountStatus } from '@quickdialog/generated/prisma/enums.js';
+import { MetaRegisterPhoneNumberResponse } from './meta/meta.types.js';
 
 export type WhatsAppStatusDto = {
   status: WhatsAppAccountStatus;
@@ -61,11 +62,16 @@ export class WhatsappService {
   ): Promise<WhatsAppStatusDto> {
     const account = await this.getAccountInStatus(hotelId, 'UNVERIFIED');
 
-    await this.meta.registerPhoneNumber(
-      account.phoneNumberId,
-      this.accessToken(account.accessTokenEncrypted),
-      pin,
-    );
+    const registerResponse: MetaRegisterPhoneNumberResponse =
+      await this.meta.registerPhoneNumber(
+        account.phoneNumberId,
+        this.accessToken(account.accessTokenEncrypted),
+        pin,
+      );
+
+    if (!registerResponse.success) {
+      throw new BadRequestException('Failed to register phone number in Meta');
+    }
 
     await this.prisma.whatsAppAccount.update({
       where: { id: account.id },
