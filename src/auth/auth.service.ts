@@ -210,8 +210,12 @@ export class AuthService {
 
           tokenHash: hashRefreshToken(nextRefreshToken),
 
-          expiresAt: this.refreshTokenExpiresAt(now),
-
+          expiresAt: new Date(
+              Math.min(
+                this.refreshTokenExpiresAt(now).getTime(),
+                currentSession.absoluteExpiresAt.getTime(),
+              ),
+            ),
           absoluteExpiresAt: currentSession.absoluteExpiresAt,
 
           ...metadata,
