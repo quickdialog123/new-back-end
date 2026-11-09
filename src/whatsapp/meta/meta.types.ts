@@ -1,3 +1,5 @@
+import { WhatsAppAccountStatus } from '@quickdialog/generated/prisma/enums.js';
+
 export type MetaAccessTokenResponse = {
   access_token: string;
   token_type?: string;
@@ -30,3 +32,5 @@ export type MetaSendMessageResponse = {
     id: string;
   }>;
 };
+
+export type MetaRegisterPhoneNumberResponse = { success: boolean };

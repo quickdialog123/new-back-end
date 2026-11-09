@@ -9,7 +9,11 @@ import { WhatsappService } from '@quickdialog/whatsapp/whatsapp.service.js';
 
 describe('WhatsappController', () => {
   let controller: WhatsappController;
-  const whatsappService = { getStatus: vi.fn(), disconnect: vi.fn() };
+  const whatsappService = {
+    getStatus: vi.fn(),
+    disconnect: vi.fn(),
+    registerPhoneNumber: vi.fn(),
+  };
   const user = {
     userId: 'user-id',
     sessionId: 'session-id',
@@ -41,6 +45,22 @@ describe('WhatsappController', () => {
     });
     expect(whatsappService.getStatus).toHaveBeenCalledWith('hotel-id');
     expect(whatsappService.disconnect).toHaveBeenCalledWith('hotel-id');
+  });
+
+  it('routes PIN registration to the authenticated hotel', async () => {
+    const register = { pin: '654321' };
+    whatsappService.registerPhoneNumber.mockResolvedValue({
+      status: 'connected',
+    });
+
+    await expect(
+      controller.registerPhoneNumber(user as never, register),
+    ).resolves.toMatchObject({ status: 'connected' });
+
+    expect(whatsappService.registerPhoneNumber).toHaveBeenCalledWith(
+      'hotel-id',
+      '654321',
+    );
   });
 
   it('rejects users without a hotel context', () => {

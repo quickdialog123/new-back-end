@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@quickdialog/database/prisma.service.js';
+import { WhatsAppAccountStatus } from '@quickdialog/generated/prisma/client.js';
 import { MetaGraphClient } from '../meta/meta-graph.client.js';
 import { encryptMetaToken } from '../meta/meta-token.util.js';
 import { WhatsappService } from '../whatsapp.service.js';
@@ -32,7 +33,7 @@ export class EmbeddedSignupService {
     const current = await this.prisma.whatsAppAccount.findFirst({
       where: {
         hotelId,
-        status: { not: 'DISCONNECTED' },
+        status: { not: 'NOT_CONNECTED' },
       },
     });
 
@@ -69,7 +70,7 @@ export class EmbeddedSignupService {
       );
     }
 
-    if (matches.some((account) => account.status !== 'DISCONNECTED')) {
+    if (matches.some((account) => account.status !== 'NOT_CONNECTED')) {
       throw new BadRequestException('This WhatsApp account is already active');
     }
 
@@ -90,7 +91,7 @@ export class EmbeddedSignupService {
     const previous = await this.prisma.whatsAppAccount.findFirst({
       where: {
         hotelId,
-        status: 'DISCONNECTED',
+        status: 'NOT_CONNECTED',
       },
       orderBy: { updatedAt: 'desc' },
     });
@@ -110,7 +111,8 @@ export class EmbeddedSignupService {
       displayPhoneNumber: phone.display_phone_number,
       verifiedName: phone.verified_name,
       accessTokenEncrypted: encryptMetaToken(accessToken, encryptionKey),
-      status: 'CONNECTED',
+      status: WhatsAppAccountStatus.UNVERIFIED,
+      connectedAt: null,
     };
 
     if (existingAccount) {
@@ -123,7 +125,6 @@ export class EmbeddedSignupService {
         data: {
           hotelId,
           ...data,
-          connectedAt: new Date(),
         },
       });
     }
