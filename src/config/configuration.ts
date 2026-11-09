@@ -41,4 +41,17 @@ export default () => ({
       'REST API for the QuickDialog hotel messaging platform.',
     version: process.env.SWAGGER_VERSION ?? '1.0',
   },
+
+  meta: {
+    graphVersion: process.env.META_GRAPH_VERSION,
+    appId: process.env.META_APP_ID,
+    appSecret: process.env.META_APP_SECRET,
+    tokenEncryptionKey: process.env.META_TOKEN_ENCRYPTION_KEY,
+    webhook: {
+      verifyToken: process.env.META_WEBHOOK_VERIFY_TOKEN,
+    },
+    embeddedSignup: {
+      configId: process.env.META_EMBEDDED_SIGNUP_CONFIG_ID,
+    },
+  },
 });

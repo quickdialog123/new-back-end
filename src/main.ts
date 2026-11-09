@@ -20,6 +20,7 @@ async function bootstrap(): Promise<void> {
     }),
     {
       bufferLogs: true, // remove nest startup logs
+      rawBody: true,
     },
   );
 

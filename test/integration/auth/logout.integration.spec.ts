@@ -45,6 +45,7 @@ describe('Auth logout integration', () => {
   afterEach(async () => {
     await prisma.refreshSession.deleteMany();
     await prisma.user.deleteMany();
+    await prisma.hotel.deleteMany();
   });
 
   afterAll(async () => {
@@ -59,7 +60,13 @@ describe('Auth logout integration', () => {
         fullName: 'Test User',
         role: 'OWNER',
         active: true,
-        hotelId: null,
+        hotel: {
+          create: {
+            name: `Test Hotel for ${email}`,
+            phoneNumber: '+1 555 010 0000',
+            token: `test-hotel-${email}`,
+          },
+        },
       },
     });
   }

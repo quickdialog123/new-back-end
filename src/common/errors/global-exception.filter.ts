@@ -30,7 +30,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const { httpAdapter } = this.adapterHost;
     const context = host.switchToHttp();
     const request = context.getRequest();
-
     const isHttpException = exception instanceof HttpException;
 
     const statusCode = isHttpException
@@ -212,6 +211,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       case HttpStatus.SERVICE_UNAVAILABLE:
         return 'SERVICE_UNAVAILABLE';
 
+      case HttpStatus.BAD_GATEWAY:
+        return 'BAD_GATEWAY';
+
       default:
         return statusCode >= 500 ? 'INTERNAL_SERVER_ERROR' : 'HTTP_ERROR';
     }
@@ -242,6 +244,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
       case HttpStatus.SERVICE_UNAVAILABLE:
         return 'Service unavailable';
+
+      case HttpStatus.BAD_GATEWAY:
+        return 'Bad gateway';
 
       default:
         return statusCode >= 500 ? 'Internal server error' : 'Request failed';
