@@ -4,8 +4,12 @@ import { HttpClient } from '@nestjs/http-client';
 import type {
   MetaAccessTokenResponse,
   MetaClientBusinessResponse,
+  MetaCommerceSettingsResponse,
+  MetaCreateCatalogResponse,
   MetaPhoneNumbersResponse,
+  MetaProductCatalogsResponse,
   MetaRegisterPhoneNumberResponse,
+  MetaSuccessResponse,
 } from './meta.types.js';
 
 @Injectable()
@@ -104,27 +108,130 @@ export class MetaGraphClient {
     return data;
   }
 
-  async getProductcatalogs(wabaId: string, accessToken: string) {
-    const { data: S } = await this.http.get<any>(
-      `/${this.version}/me/permissions`,
+  async getOwnedCatalogs(
+    businessId: string,
+    accessToken: string,
+  ): Promise<MetaProductCatalogsResponse['data']> {
+    const fields = ['id', 'name', 'vertical', 'product_count'].join(',');
+
+    const { data } = await this.http.get<MetaProductCatalogsResponse>(
+      `/${this.version}/${businessId}/owned_product_catalogs?fields=${fields}`,
       {
         headers: {
           authorization: `Bearer ${accessToken}`,
         },
       },
     );
-    console.log(S);
-    const { data } = await this.http.get<any>(
+
+    return data.data;
+  }
+
+  async getWabaCatalogs(
+    wabaId: string,
+    accessToken: string,
+  ): Promise<MetaProductCatalogsResponse['data']> {
+    const fields = ['id', 'name', 'vertical', 'product_count'].join(',');
+
+    const { data } = await this.http.get<MetaProductCatalogsResponse>(
+      `/${this.version}/${wabaId}/product_catalogs?fields=${fields}`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    return data.data;
+  }
+
+  async createCatalog(
+    businessId: string,
+    name: string,
+    accessToken: string,
+  ): Promise<string> {
+    const { data } = await this.http.post<MetaCreateCatalogResponse>(
+      `/${this.version}/${businessId}/owned_product_catalogs`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+        json: {
+          name,
+          vertical: 'commerce', // NOTE: for MVP
+        },
+      },
+    );
+
+    return data.id;
+  }
+
+  async connectCatalogToWaba(
+    wabaId: string,
+    catalogId: string,
+    accessToken: string,
+  ): Promise<void> {
+    const { data } = await this.http.post<MetaSuccessResponse>(
       `/${this.version}/${wabaId}/product_catalogs`,
       {
         headers: {
           authorization: `Bearer ${accessToken}`,
         },
+        json: {
+          catalog_id: catalogId,
+        },
       },
     );
 
-    console.log(data);
+    if (!data.success) {
+      throw new Error('Meta did not connect the catalog');
+    }
+  }
 
-    return '';
+  async getCommerceSettings(
+    phoneNumberId: string,
+    accessToken: string,
+  ): Promise<MetaCommerceSettingsResponse['data'][number] | null> {
+    const { data } = await this.http.get<MetaCommerceSettingsResponse>(
+      `/${this.version}/${phoneNumberId}/whatsapp_commerce_settings`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    return data.data[0] ?? null;
+  }
+
+  async updateCommerceSettings(
+    phoneNumberId: string,
+    accessToken: string,
+    settings: {
+      catalogVisible?: boolean;
+      cartEnabled?: boolean;
+    },
+  ): Promise<void> {
+    const params = new URLSearchParams();
+
+    if (settings.catalogVisible !== undefined) {
+      params.set('is_catalog_visible', String(settings.catalogVisible));
+    }
+
+    if (settings.cartEnabled !== undefined) {
+      params.set('is_cart_enabled', String(settings.cartEnabled));
+    }
+
+    const { data } = await this.http.post<MetaSuccessResponse>(
+      `/${this.version}/${phoneNumberId}/whatsapp_commerce_settings?${params.toString()}`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    if (!data.success) {
+      throw new Error('Meta did not update commerce settings');
+    }
   }
 }

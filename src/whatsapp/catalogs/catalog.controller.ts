@@ -1,48 +1,62 @@
-import { Body, Controller, Delete, Get, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CurrentUser } from '@quickdialog/common/decorators/current-user.decorator.js';
 import type { AuthenticatedUser } from '@quickdialog/auth/types/authenticated-user.type.js';
+import { CurrentUser } from '@quickdialog/common/decorators/current-user.decorator.js';
 import { Roles } from '@quickdialog/common/decorators/roles.decorator.js';
 import { UserRole } from '@quickdialog/generated/prisma/client.js';
 import { SWAGGER_TAGS } from '@quickdialog/swagger/swagger.tags.js';
 import { CatalogService } from './catalog.service.js';
-import { Public } from '@quickdialog/common/decorators/public.decorator.js';
-import { SkipOriginCheck } from '@quickdialog/common/decorators/skip-origin-check.decorator.js';
+import {
+  connectCatalogSchema,
+  createCatalogSchema,
+  updateCatalogSettingsSchema,
+  type ConnectCatalogDto,
+  type CreateCatalogDto,
+  type UpdateCatalogSettingsDto,
+} from './schemas/catalog.schema.js';
 
 @ApiTags(SWAGGER_TAGS.WHATSAPP.EMBEDDED_SIGNUP.ROOT)
 @Controller('whatsapp/catalogs')
 export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}
 
-  @Get()
-  @Public()
-  @SkipOriginCheck()
-  //@Roles(UserRole.OWNER)
-  getCatalogs(@CurrentUser() user: AuthenticatedUser) {
-    return this.catalogService.getCatalogs(user.hotelId!);
+  @Get('connection')
+  @Roles(UserRole.OWNER)
+  getConnection(@CurrentUser() user: AuthenticatedUser) {
+    return this.catalogService.getConnection(user.hotelId!);
   }
 
-  @Get(':id')
+  @Get('available')
   @Roles(UserRole.OWNER)
-  getCatalogById(@CurrentUser() user: AuthenticatedUser) {
-    return '';
+  getAvailableCatalogs(@CurrentUser() user: AuthenticatedUser) {
+    return this.catalogService.getAvailableCatalogs(user.hotelId!);
   }
 
   @Post()
   @Roles(UserRole.OWNER)
-  createCatalog(@CurrentUser() user: AuthenticatedUser) {
-    return '';
+  createCatalog(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body({ schema: createCatalogSchema }) input: CreateCatalogDto,
+  ) {
+    return this.catalogService.createCatalog(user.hotelId!, input);
   }
 
-  @Patch(':id')
+  @Post('connect')
   @Roles(UserRole.OWNER)
-  updateCatalog(@CurrentUser() user: AuthenticatedUser) {
-    return '';
+  connectCatalog(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body({ schema: connectCatalogSchema }) input: ConnectCatalogDto,
+  ) {
+    return this.catalogService.connectCatalog(user.hotelId!, input);
   }
 
-  @Delete(':id')
+  @Patch('settings')
   @Roles(UserRole.OWNER)
-  deleteCatalog(@CurrentUser() user: AuthenticatedUser) {
-    return '';
+  updateSettings(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body({ schema: updateCatalogSettingsSchema })
+    input: UpdateCatalogSettingsDto,
+  ) {
+    return this.catalogService.updateSettings(user.hotelId!, input);
   }
 }

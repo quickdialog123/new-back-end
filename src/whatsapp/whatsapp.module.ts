@@ -15,7 +15,7 @@ import { CatalogService } from './catalogs/catalog.service.js';
   imports: [
     HttpClientModule.register({
       baseUrl: 'https://graph.facebook.com',
-      timeout: '60s',
+      timeout: '20s',
     }),
   ],
   controllers: [
