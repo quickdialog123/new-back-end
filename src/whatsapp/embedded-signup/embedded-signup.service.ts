@@ -30,19 +30,6 @@ export class EmbeddedSignupService {
       throw new NotFoundException('Hotel not found');
     }
 
-    const current = await this.prisma.whatsAppAccount.findFirst({
-      where: {
-        hotelId,
-        status: { not: 'NOT_CONNECTED' },
-      },
-    });
-
-    if (current) {
-      throw new BadRequestException(
-        'Disconnect the current WhatsApp account before connecting another one',
-      );
-    }
-
     const accessToken = await this.meta.exchangeCode(input.code);
 
     const [businessId, phones] = await Promise.all([
@@ -58,27 +45,39 @@ export class EmbeddedSignupService {
       );
     }
 
-    const matches = await this.prisma.whatsAppAccount.findMany({
+    const accounts = await this.prisma.whatsAppAccount.findMany({
       where: {
-        OR: [{ wabaId: input.wabaId }, { phoneNumberId: input.phoneNumberId }],
+        OR: [
+          { hotelId },
+          { wabaId: input.wabaId },
+          { phoneNumberId: input.phoneNumberId },
+        ],
       },
+      orderBy: { updatedAt: 'desc' },
     });
 
-    if (matches.some((account) => account.hotelId !== hotelId)) {
+    const ownedByAnotherHotel = accounts.some(
+      (account) =>
+        account.hotelId !== hotelId &&
+        (account.wabaId === input.wabaId ||
+          account.phoneNumberId === input.phoneNumberId),
+    );
+
+    if (ownedByAnotherHotel) {
       throw new BadRequestException(
         'This WhatsApp account is already linked to another hotel',
       );
     }
 
-    if (matches.some((account) => account.status !== 'NOT_CONNECTED')) {
-      throw new BadRequestException('This WhatsApp account is already active');
-    }
+    const hotelAccounts = accounts.filter(
+      (account) => account.hotelId === hotelId,
+    );
 
-    const matchingPhone = matches.find(
+    const matchingPhone = hotelAccounts.find(
       (account) => account.phoneNumberId === input.phoneNumberId,
     );
 
-    const matchingWaba = matches.find(
+    const matchingWaba = hotelAccounts.find(
       (account) => account.wabaId === input.wabaId,
     );
 
@@ -88,15 +87,33 @@ export class EmbeddedSignupService {
       );
     }
 
-    const previous = await this.prisma.whatsAppAccount.findFirst({
-      where: {
-        hotelId,
-        status: 'NOT_CONNECTED',
-      },
-      orderBy: { updatedAt: 'desc' },
-    });
+    const matchingAccount = matchingPhone ?? matchingWaba;
 
-    const existingAccount = matchingPhone ?? matchingWaba ?? previous;
+    const sameConnectedAccount =
+      matchingAccount?.status === WhatsAppAccountStatus.CONNECTED &&
+      matchingAccount.wabaId === input.wabaId &&
+      matchingAccount.phoneNumberId === input.phoneNumberId;
+
+    const hasOtherActiveAccount = hotelAccounts.some(
+      (account) =>
+        account.id !== matchingAccount?.id &&
+        account.status !== WhatsAppAccountStatus.NOT_CONNECTED,
+    );
+
+    if (sameConnectedAccount && !hasOtherActiveAccount) {
+      return this.whatsappService.getStatus(hotelId);
+    }
+
+    const activeAccount = hotelAccounts.find(
+      (account) => account.status !== WhatsAppAccountStatus.NOT_CONNECTED,
+    );
+
+    const disconnectedAccount = hotelAccounts.find(
+      (account) => account.status === WhatsAppAccountStatus.NOT_CONNECTED,
+    );
+
+    const existingAccount =
+      matchingAccount ?? activeAccount ?? disconnectedAccount;
 
     await this.meta.subscribeApp(input.wabaId, accessToken);
 
@@ -115,19 +132,34 @@ export class EmbeddedSignupService {
       connectedAt: null,
     };
 
-    if (existingAccount) {
-      await this.prisma.whatsAppAccount.update({
-        where: { id: existingAccount.id },
-        data,
-      });
-    } else {
-      await this.prisma.whatsAppAccount.create({
-        data: {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.whatsAppAccount.updateMany({
+        where: {
           hotelId,
-          ...data,
+          status: {
+            not: WhatsAppAccountStatus.NOT_CONNECTED,
+          },
+        },
+        data: {
+          status: WhatsAppAccountStatus.NOT_CONNECTED,
+          connectedAt: null,
         },
       });
-    }
+
+      if (existingAccount) {
+        await tx.whatsAppAccount.update({
+          where: { id: existingAccount.id },
+          data,
+        });
+      } else {
+        await tx.whatsAppAccount.create({
+          data: {
+            hotelId,
+            ...data,
+          },
+        });
+      }
+    });
 
     return this.whatsappService.getStatus(hotelId);
   }

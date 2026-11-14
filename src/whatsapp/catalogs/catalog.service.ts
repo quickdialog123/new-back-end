@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -74,6 +75,8 @@ export class CatalogService {
       connectedCatalogs.map((catalog) => catalog.id),
     );
 
+    console.log(ownedCatalogs);
+
     return ownedCatalogs
       .filter((catalog) => catalog.vertical === 'commerce')
       .map((catalog) => ({
@@ -100,7 +103,7 @@ export class CatalogService {
     );
 
     if (connectedCatalogs.length > 0) {
-      throw new BadRequestException(
+      throw new ConflictException(
         'A catalog is already connected to this WhatsApp account',
       );
     }
@@ -117,7 +120,7 @@ export class CatalogService {
     );
 
     if (duplicate) {
-      throw new BadRequestException(
+      throw new ConflictException(
         'A catalog with this name already exists. Connect the existing catalog instead.',
       );
     }

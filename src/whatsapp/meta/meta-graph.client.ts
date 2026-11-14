@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HttpClient } from '@nestjs/http-client';
+import { HttpClient, HttpResponseError } from '@nestjs/http-client';
 import type {
   MetaAccessTokenResponse,
   MetaClientBusinessResponse,
@@ -149,20 +149,38 @@ export class MetaGraphClient {
     name: string,
     accessToken: string,
   ): Promise<string> {
-    const { data } = await this.http.post<MetaCreateCatalogResponse>(
-      `/${this.version}/${businessId}/owned_product_catalogs`,
-      {
-        headers: {
-          authorization: `Bearer ${accessToken}`,
-        },
-        json: {
-          name,
-          vertical: 'commerce', // NOTE: for MVP
-        },
-      },
-    );
+    const params = new URLSearchParams({
+      name: name.trim(),
+      vertical: 'commerce',
+    });
 
-    return data.id;
+    try {
+      const { data } = await this.http.post<MetaCreateCatalogResponse>(
+        `/${this.version}/${businessId}/owned_product_catalogs?${params.toString()}`,
+        {
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      return data.id;
+    } catch (error) {
+      if (error instanceof HttpResponseError) {
+        console.error('Meta create catalog failed', {
+          status: error.status,
+
+          statusText: error.statusText,
+
+          body: error.body,
+
+          businessId,
+          catalogName: name,
+        });
+      }
+
+      throw error;
+    }
   }
 
   async connectCatalogToWaba(
