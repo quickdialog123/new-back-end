@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -79,23 +78,16 @@ export class CatalogService {
   }
 
   async getAvailableCatalogs(hotelId: string) {
-    const { account, token } = await this.getConnectedAccount(hotelId);
+    const { token } = await this.getConnectedAccount(hotelId);
 
     const systemUserId = await this.meta.getSystemUserId(token);
+    const catalogs = await this.meta.getAssignedCatalogs(systemUserId, token);
 
-    const [availableCatalogs, connectedCatalogs] = await Promise.all([
-      this.meta.getAssignedCatalogs(systemUserId, token),
-      this.meta.getWabaCatalogs(account.wabaId, token),
-    ]);
-
-    const connectedCatalogId = connectedCatalogs[0]?.id ?? null;
-
-    return availableCatalogs.map((catalog) => ({
+    return catalogs.map((catalog) => ({
       id: catalog.id,
       name: catalog.name,
       vertical: catalog.vertical ?? null,
       productCount: catalog.product_count ?? 0,
-      connected: catalog.id === connectedCatalogId,
     }));
   }
 

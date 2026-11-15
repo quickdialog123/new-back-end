@@ -53,9 +53,5 @@ export default () => ({
     embeddedSignup: {
       configId: process.env.META_EMBEDDED_SIGNUP_CONFIG_ID,
     },
-    system: {
-      businessId: process.env.META_BUSINESS_ID,
-      token: process.env.META_SYSTEM_USER_ACCESS_TOKEN,
-    },
   },
 });

@@ -1,5 +1,3 @@
-import { WhatsAppAccountStatus } from '@quickdialog/generated/prisma/enums.js';
-
 export type MetaAccessTokenResponse = {
   access_token: string;
   token_type?: string;
@@ -46,10 +44,6 @@ export type MetaProductCatalogsResponse = {
   data: MetaProductCatalog[];
 };
 
-export type MetaCreateCatalogResponse = {
-  id: string;
-};
-
 export type MetaSuccessResponse = {
   success: boolean;
 };
@@ -64,10 +58,6 @@ export type MetaCommerceSettingsResponse = {
   data: MetaCommerceSetting[];
 };
 
-export type MetaAssignedProductCatalog = MetaProductCatalog & {
-  access_type?: string;
-};
-
 export type MetaAssignedProductCatalogsResponse = {
-  data: MetaAssignedProductCatalog[];
+  data: MetaProductCatalog[];
 };

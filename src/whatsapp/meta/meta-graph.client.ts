@@ -197,19 +197,6 @@ export class MetaGraphClient {
     }
   }
 
-  async getCatalog(catalogId: string, accessToken: string) {
-    const { data } = await this.http.get(
-      `/${this.version}/${catalogId}?fields=id,name,vertical`,
-      {
-        headers: {
-          authorization: `Bearer ${accessToken}`,
-        },
-      },
-    );
-
-    return data;
-  }
-
   async getSystemUserId(accessToken: string): Promise<string> {
     const { data } = await this.http.get<{
       id: string;
