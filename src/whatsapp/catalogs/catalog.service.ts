@@ -99,6 +99,26 @@ export class CatalogService {
     }));
   }
 
+  async disconnectCatalog(hotelId: string) {
+    const { account, token } = await this.getConnectedAccount(hotelId);
+
+    const catalogs = await this.meta.getWabaCatalogs(account.wabaId, token);
+
+    const catalog = catalogs[0];
+
+    if (!catalog) {
+      return this.getConnection(hotelId);
+    }
+
+    await this.meta.disconnectCatalogFromWaba(
+      account.wabaId,
+      catalog.id,
+      token,
+    );
+
+    return this.getConnection(hotelId);
+  }
+
   // shared query function for DRY rule
   private async getConnectedAccount(hotelId: string) {
     const account = await this.prisma.whatsAppAccount.findFirst({

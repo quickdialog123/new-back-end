@@ -28,6 +28,12 @@ export class CatalogController {
     return this.catalogService.connectCatalog(user.hotelId!, input.catalogId);
   }
 
+  @Post('disconnect')
+  @Roles(UserRole.OWNER)
+  disconnectCatalog(@CurrentUser() user: AuthenticatedUser) {
+    return this.catalogService.disconnectCatalog(user.hotelId!);
+  }
+
   @Get('connection')
   @Roles(UserRole.OWNER)
   getConnection(@CurrentUser() user: AuthenticatedUser) {

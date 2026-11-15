@@ -239,4 +239,27 @@ export class MetaGraphClient {
 
     return data.data;
   }
+
+  async disconnectCatalogFromWaba(
+    wabaId: string,
+    catalogId: string,
+    accessToken: string,
+  ): Promise<void> {
+    const params = new URLSearchParams({
+      catalog_id: catalogId,
+    });
+
+    const { data } = await this.http.delete<MetaSuccessResponse>(
+      `/${this.version}/${wabaId}/product_catalogs?${params.toString()}`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    if (!data.success) {
+      throw new Error('Meta did not disconnect the catalog');
+    }
+  }
 }
