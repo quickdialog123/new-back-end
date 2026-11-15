@@ -39,7 +39,7 @@ export class WhatsappService {
       return this.notConnected();
     }
 
-    const status = account.status.toLocaleLowerCase() as WhatsAppAccountStatus;
+    const status = account.status as WhatsAppAccountStatus;
 
     return {
       status,

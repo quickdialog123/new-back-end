@@ -9,7 +9,8 @@ describe('MetaGraphClient', () => {
   let client: MetaGraphClient;
   const get = vi.fn();
   const post = vi.fn();
-  const http = { get, post };
+  const remove = vi.fn();
+  const http = { get, post, delete: remove };
   const config = {
     getOrThrow: vi.fn(
       (key: string) =>
@@ -148,5 +149,108 @@ describe('MetaGraphClient', () => {
     const error = new Error('network details');
     get.mockRejectedValueOnce(error);
     await expect(client.exchangeCode('code')).rejects.toBe(error);
+  });
+
+  it('connects and lists WhatsApp product catalogs', async () => {
+    post.mockResolvedValue({ data: { success: true } });
+    get.mockResolvedValue({
+      data: {
+        data: [
+          {
+            id: 'catalog-id',
+            name: 'Hotel catalog',
+            vertical: 'commerce',
+            product_count: 10,
+          },
+        ],
+      },
+    });
+
+    await expect(
+      client.connectCatalogToWaba('waba-id', 'catalog id', 'access-token'),
+    ).resolves.toBeUndefined();
+    await expect(
+      client.getWabaCatalogs('waba-id', 'access-token'),
+    ).resolves.toEqual([
+      {
+        id: 'catalog-id',
+        name: 'Hotel catalog',
+        vertical: 'commerce',
+        product_count: 10,
+      },
+    ]);
+
+    expect(post).toHaveBeenCalledWith(
+      '/v26.0/waba-id/product_catalogs?catalog_id=catalog+id',
+      { headers: { authorization: 'Bearer access-token' } },
+    );
+    expect(get).toHaveBeenCalledWith(
+      '/v26.0/waba-id/product_catalogs?fields=id,name,vertical,product_count',
+      { headers: { authorization: 'Bearer access-token' } },
+    );
+  });
+
+  it('gets and updates commerce settings', async () => {
+    get
+      .mockResolvedValueOnce({
+        data: {
+          data: [
+            {
+              id: 'setting-id',
+              is_catalog_visible: true,
+              is_cart_enabled: false,
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({ data: { data: [] } });
+    post.mockResolvedValue({ data: { success: true } });
+
+    await expect(
+      client.getCommerceSettings('phone-id', 'access-token'),
+    ).resolves.toMatchObject({ is_catalog_visible: true });
+    await expect(
+      client.getCommerceSettings('phone-id', 'access-token'),
+    ).resolves.toBeNull();
+    await expect(
+      client.updateCommerceSettings('phone-id', 'access-token', {
+        catalogVisible: true,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(post).toHaveBeenCalledWith(
+      '/v26.0/phone-id/whatsapp_commerce_settings?is_catalog_visible=true',
+      { headers: { authorization: 'Bearer access-token' } },
+    );
+  });
+
+  it('gets assigned catalogs and disconnects an existing catalog', async () => {
+    get
+      .mockResolvedValueOnce({ data: { id: 'system-user-id' } })
+      .mockResolvedValueOnce({ data: { data: [{ id: 'catalog-id' }] } });
+    remove.mockResolvedValue({ data: { success: true } });
+
+    await expect(client.getSystemUserId('access-token')).resolves.toBe(
+      'system-user-id',
+    );
+    await expect(
+      client.getAssignedCatalogs('system-user-id', 'access-token'),
+    ).resolves.toEqual([{ id: 'catalog-id' }]);
+    await expect(
+      client.disconnectCatalogFromWaba('waba-id', 'catalog id', 'access-token'),
+    ).resolves.toBeUndefined();
+
+    expect(get).toHaveBeenNthCalledWith(1, '/v26.0/me?fields=id', {
+      headers: { authorization: 'Bearer access-token' },
+    });
+    expect(get).toHaveBeenNthCalledWith(
+      2,
+      '/v26.0/system-user-id/assigned_product_catalogs?fields=id,name,vertical,product_count',
+      { headers: { authorization: 'Bearer access-token' } },
+    );
+    expect(remove).toHaveBeenCalledWith(
+      '/v26.0/waba-id/product_catalogs?catalog_id=catalog+id',
+      { headers: { authorization: 'Bearer access-token' } },
+    );
   });
 });

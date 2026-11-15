@@ -13,6 +13,8 @@ import { HealthController } from '@quickdialog/health/health.controller.js';
 import { HealthService } from '@quickdialog/health/health.service.js';
 import { EmbeddedSignupController } from '@quickdialog/whatsapp/embedded-signup/embedded-signup.controller.js';
 import { EmbeddedSignupService } from '@quickdialog/whatsapp/embedded-signup/embedded-signup.service.js';
+import { CatalogController } from '@quickdialog/whatsapp/catalogs/catalog.controller.js';
+import { CatalogService } from '@quickdialog/whatsapp/catalogs/catalog.service.js';
 import { MetaGraphClient } from '@quickdialog/whatsapp/meta/meta-graph.client.js';
 import { WhatsappController } from '@quickdialog/whatsapp/whatsapp.controller.js';
 import { WhatsappService } from '@quickdialog/whatsapp/whatsapp.service.js';
@@ -34,12 +36,14 @@ describe('Swagger API contract', () => {
         HealthController,
         WhatsappController,
         EmbeddedSignupController,
+        CatalogController,
       ],
       providers: [
         { provide: AuthService, useValue: {} },
         { provide: HealthService, useValue: {} },
         { provide: WhatsappService, useValue: {} },
         { provide: EmbeddedSignupService, useValue: {} },
+        { provide: CatalogService, useValue: {} },
         { provide: MetaGraphClient, useValue: {} },
         { provide: ConfigService, useValue: config },
       ],
@@ -184,12 +188,7 @@ describe('Swagger API contract', () => {
       document.paths['/api/whatsapp/embedded-signup/complete'].post!;
     const register = document.paths['/api/whatsapp/register'].post!;
 
-    for (const operation of [
-      status,
-      disconnect,
-      complete,
-      register,
-    ]) {
+    for (const operation of [status, disconnect, complete, register]) {
       expect(operation.security).toEqual([{ 'access-token': [] }]);
       expect(operation.responses).toHaveProperty('401');
       expect(operation.responses).toHaveProperty('403');
@@ -216,11 +215,7 @@ describe('Swagger API contract', () => {
                 ],
                 properties: {
                   status: {
-                    enum: [
-                      'connected',
-                      'not_connected',
-                       'unverified',
-                    ],
+                    enum: ['CONNECTED', 'NOT_CONNECTED', 'UNVERIFIED'],
                   },
                   connectedAt: { format: 'date-time', nullable: true },
                 },
@@ -272,6 +267,67 @@ describe('Swagger API contract', () => {
     expect(document.tags).toContainEqual({
       name: 'Whatsapp / Embedded Signup',
       summary: 'Embedded Signup',
+      parent: 'Whatsapp',
+    });
+  });
+
+  it('documents protected WhatsApp catalog operations', () => {
+    const connect = document.paths['/api/whatsapp/catalogs/connect'].post!;
+    const disconnect =
+      document.paths['/api/whatsapp/catalogs/disconnect'].post!;
+    const connection = document.paths['/api/whatsapp/catalogs/connection'].get!;
+    const available = document.paths['/api/whatsapp/catalogs/available'].get!;
+    const settings = document.paths['/api/whatsapp/catalogs/settings'].patch!;
+
+    for (const operation of [
+      connect,
+      disconnect,
+      connection,
+      available,
+      settings,
+    ]) {
+      expect(operation).toMatchObject({ tags: ['Whatsapp / Catalogs'] });
+      expect(operation.security).toEqual([{ 'access-token': [] }]);
+      expect(operation.responses).toHaveProperty('401');
+      expect(operation.responses).toHaveProperty('403');
+      expect(operation.responses).toHaveProperty('429');
+    }
+
+    expect(connect).toMatchObject({
+      summary: 'Connect a product catalog to WhatsApp',
+      requestBody: {
+        content: {
+          'application/json': {
+            schema: {
+              required: ['catalogId'],
+              properties: { catalogId: { minLength: 1 } },
+            },
+          },
+        },
+      },
+    });
+    expect(connect.responses).toHaveProperty('201');
+    expect(disconnect.responses).toHaveProperty('201');
+    expect(connection.responses).toHaveProperty('200');
+    expect(available.responses).toHaveProperty('200');
+    expect(settings).toMatchObject({
+      requestBody: {
+        content: {
+          'application/json': {
+            schema: {
+              properties: {
+                catalogVisible: { type: 'boolean' },
+                cartEnabled: { type: 'boolean' },
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(settings.responses).toHaveProperty('200');
+    expect(document.tags).toContainEqual({
+      name: 'Whatsapp / Catalogs',
+      summary: 'Catalogs',
       parent: 'Whatsapp',
     });
   });

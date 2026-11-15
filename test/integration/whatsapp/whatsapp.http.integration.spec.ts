@@ -145,7 +145,7 @@ describe('WhatsApp HTTP integration', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
-      status: 'connected',
+      status: 'CONNECTED',
       wabaId: 'waba-id',
       phoneNumber: '+15551234567',
       displayName: 'QuickDialog Hotel',
@@ -178,7 +178,7 @@ describe('WhatsApp HTTP integration', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
-      status: 'unverified',
+      status: 'UNVERIFIED',
       wabaId: 'pending-waba-id',
       connectedAt: null,
     });
@@ -228,7 +228,7 @@ describe('WhatsApp HTTP integration', () => {
     });
     expect(register.statusCode).toBe(201);
     expect(register.json()).toMatchObject({
-      status: 'connected',
+      status: 'CONNECTED',
       connectedAt: expect.any(String),
     });
 

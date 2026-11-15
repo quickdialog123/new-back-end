@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,16 +14,20 @@ describe('EmbeddedSignupService', () => {
   const hotelFindUnique = vi.fn();
   const accountFindFirst = vi.fn();
   const accountFindMany = vi.fn();
+  const accountUpdateMany = vi.fn();
   const accountUpdate = vi.fn();
   const accountCreate = vi.fn();
+  const transaction = vi.fn();
 
   const prisma = {
+    $transaction: transaction,
     hotel: {
       findUnique: hotelFindUnique,
     },
     whatsAppAccount: {
       findFirst: accountFindFirst,
       findMany: accountFindMany,
+      updateMany: accountUpdateMany,
       update: accountUpdate,
       create: accountCreate,
     },
@@ -80,10 +84,20 @@ describe('EmbeddedSignupService', () => {
     config.getOrThrow.mockReturnValue(Buffer.alloc(32).toString('base64'));
 
     accountUpdate.mockResolvedValue({ hotelId: 'hotel-id' });
+    accountUpdateMany.mockResolvedValue({ count: 0 });
     accountCreate.mockResolvedValue({ hotelId: 'hotel-id' });
+    transaction.mockImplementation(async (callback) =>
+      callback({
+        whatsAppAccount: {
+          updateMany: accountUpdateMany,
+          update: accountUpdate,
+          create: accountCreate,
+        },
+      }),
+    );
 
     whatsappService.getStatus.mockResolvedValue({
-      status: 'unverified',
+      status: 'UNVERIFIED',
     });
 
     const moduleRef = await Test.createTestingModule({
@@ -103,7 +117,7 @@ describe('EmbeddedSignupService', () => {
     accountFindMany.mockResolvedValue([disconnectedAccount]);
 
     await expect(service.complete('hotel-id', input)).resolves.toEqual({
-      status: 'unverified',
+      status: 'UNVERIFIED',
     });
 
     expect(accountCreate).not.toHaveBeenCalled();
@@ -142,17 +156,19 @@ describe('EmbeddedSignupService', () => {
     expect(accountCreate).not.toHaveBeenCalled();
   });
 
-  it('requires disconnecting the active account before connecting again', async () => {
-    accountFindFirst.mockResolvedValue({
-      ...disconnectedAccount,
-      status: 'CONNECTED',
+  it('returns the current status when the same active account reconnects', async () => {
+    accountFindMany.mockResolvedValue([
+      {
+        ...disconnectedAccount,
+        status: 'CONNECTED',
+      },
+    ]);
+
+    await expect(service.complete('hotel-id', input)).resolves.toEqual({
+      status: 'UNVERIFIED',
     });
 
-    await expect(service.complete('hotel-id', input)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
-
-    expect(meta.exchangeCode).not.toHaveBeenCalled();
+    expect(meta.subscribeApp).not.toHaveBeenCalled();
     expect(accountUpdate).not.toHaveBeenCalled();
     expect(accountCreate).not.toHaveBeenCalled();
   });
@@ -201,7 +217,7 @@ describe('EmbeddedSignupService', () => {
     ]);
 
     await expect(service.complete('hotel-id', newInput)).resolves.toEqual({
-      status: 'unverified',
+      status: 'UNVERIFIED',
     });
 
     expect(meta.getPhoneNumbers).toHaveBeenCalledWith(
@@ -224,7 +240,7 @@ describe('EmbeddedSignupService', () => {
 
   it('creates a new account with only an encrypted token', async () => {
     await expect(service.complete('hotel-id', input)).resolves.toEqual({
-      status: 'unverified',
+      status: 'UNVERIFIED',
     });
 
     expect(accountUpdate).not.toHaveBeenCalled();
@@ -300,11 +316,11 @@ describe('EmbeddedSignupService', () => {
       },
     ]);
     whatsappService.getStatus.mockResolvedValue({
-      status: 'unverified',
+      status: 'UNVERIFIED',
     });
 
     await expect(service.complete('hotel-id', input)).resolves.toEqual({
-      status: 'unverified',
+      status: 'UNVERIFIED',
     });
 
     expect(accountCreate).toHaveBeenCalledWith({

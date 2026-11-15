@@ -76,7 +76,7 @@ describe('WhatsappService', () => {
     });
 
     await expect(service.getStatus('hotel-id')).resolves.toEqual({
-      status: 'connected',
+      status: 'CONNECTED',
       wabaId: 'waba-id',
       phoneNumber: '+15551234567',
       displayName: 'QuickDialog Hotel',
@@ -124,7 +124,7 @@ describe('WhatsappService', () => {
     findFirst.mockResolvedValue(account);
 
     await expect(service.getStatus('hotel-id')).resolves.toMatchObject({
-      status: 'unverified',
+      status: 'UNVERIFIED',
       phoneNumber: '+15551234567',
       connectedAt: null,
     });
@@ -137,7 +137,7 @@ describe('WhatsappService', () => {
     await expect(
       service.registerPhoneNumber('hotel-id', '654321'),
     ).resolves.toMatchObject({
-      status: 'connected',
+      status: 'CONNECTED',
       connectedAt: expect.any(String),
     });
 
@@ -175,7 +175,7 @@ describe('WhatsappService', () => {
     });
 
     await expect(service.getStatus('hotel-id')).resolves.toMatchObject({
-      status: 'unknown',
+      status: 'UNKNOWN',
     });
   });
 
