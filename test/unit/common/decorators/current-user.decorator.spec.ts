@@ -29,7 +29,7 @@ describe('CurrentUser decorator', () => {
     const user = {
       userId: 'user-id',
       sessionId: 'session-id',
-      hotelId: null,
+      hotelId: 'hotel-id',
       role: 'OWNER',
     };
 

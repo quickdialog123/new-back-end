@@ -5,6 +5,13 @@ import { CurrentUser } from '@quickdialog/common/decorators/current-user.decorat
 import { Roles } from '@quickdialog/common/decorators/roles.decorator.js';
 import { UserRole } from '@quickdialog/generated/prisma/client.js';
 import { SWAGGER_TAGS } from '@quickdialog/swagger/swagger.tags.js';
+import {
+  ApiAvailableCatalogsDocs,
+  ApiCatalogConnectionDocs,
+  ApiConnectCatalogDocs,
+  ApiDisconnectCatalogDocs,
+  ApiUpdateCatalogSettingsDocs,
+} from '@quickdialog/swagger/decorators/whatsapp.decorator.js';
 import { CatalogService } from './catalog.service.js';
 import {
   connectCatalogSchema,
@@ -13,13 +20,14 @@ import {
   type UpdateCatalogSettingsDto,
 } from './schemas/catalog.schema.js';
 
-@ApiTags(SWAGGER_TAGS.WHATSAPP.EMBEDDED_SIGNUP.ROOT)
+@ApiTags(SWAGGER_TAGS.WHATSAPP.CATALOGS.ROOT)
 @Controller('whatsapp/catalogs')
 export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}
 
   @Post('connect')
   @Roles(UserRole.OWNER)
+  @ApiConnectCatalogDocs()
   connectCatalog(
     @CurrentUser() user: AuthenticatedUser,
     @Body({ schema: connectCatalogSchema })
@@ -30,24 +38,28 @@ export class CatalogController {
 
   @Post('disconnect')
   @Roles(UserRole.OWNER)
+  @ApiDisconnectCatalogDocs()
   disconnectCatalog(@CurrentUser() user: AuthenticatedUser) {
     return this.catalogService.disconnectCatalog(user.hotelId!);
   }
 
   @Get('connection')
   @Roles(UserRole.OWNER)
+  @ApiCatalogConnectionDocs()
   getConnection(@CurrentUser() user: AuthenticatedUser) {
     return this.catalogService.getConnection(user.hotelId!);
   }
 
   @Get('available')
   @Roles(UserRole.OWNER)
+  @ApiAvailableCatalogsDocs()
   getAvailableCatalogs(@CurrentUser() user: AuthenticatedUser) {
     return this.catalogService.getAvailableCatalogs(user.hotelId!);
   }
 
   @Patch('settings')
   @Roles(UserRole.OWNER)
+  @ApiUpdateCatalogSettingsDocs()
   updateSettings(
     @CurrentUser() user: AuthenticatedUser,
     @Body({ schema: updateCatalogSettingsSchema })

@@ -13,6 +13,9 @@ export const SWAGGER_TAGS = {
     EMBEDDED_SIGNUP: {
       ROOT: 'Whatsapp / Embedded Signup',
     },
+    CATALOGS: {
+      ROOT: 'Whatsapp / Catalogs',
+    },
   },
 } as const;
 

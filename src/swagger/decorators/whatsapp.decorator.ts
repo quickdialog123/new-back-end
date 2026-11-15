@@ -7,8 +7,12 @@ import {
 } from '@nestjs/swagger';
 
 import {
+  availableCatalogsSwaggerSchema,
+  catalogConnectionSwaggerSchema,
   completeEmbeddedSignupRequestSwaggerSchema,
+  connectCatalogRequestSwaggerSchema,
   registerPhoneNumberSwaggerSchema,
+  updateCatalogSettingsRequestSwaggerSchema,
   whatsappStatusSwaggerSchema,
 } from '../schemas/whatsapp.swagger.js';
 import {
@@ -85,5 +89,68 @@ export function ApiRegisterWhatsAppPhoneDocs() {
       HttpStatus.BAD_GATEWAY,
       'Meta WhatsApp API request failed',
     ),
+  );
+}
+
+export function ApiConnectCatalogDocs() {
+  return applyDecorators(
+    protectedResponses(),
+    ApiOperation({ summary: 'Connect a product catalog to WhatsApp' }),
+    ApiBody({ schema: connectCatalogRequestSwaggerSchema }),
+    ApiResponse({
+      status: HttpStatus.CREATED,
+      schema: catalogConnectionSwaggerSchema,
+    }),
+    ApiErrorResponse(HttpStatus.NOT_FOUND, 'WhatsApp account is not connected'),
+  );
+}
+
+export function ApiDisconnectCatalogDocs() {
+  return applyDecorators(
+    protectedResponses(),
+    ApiOperation({ summary: 'Disconnect the WhatsApp product catalog' }),
+    ApiResponse({
+      status: HttpStatus.CREATED,
+      schema: catalogConnectionSwaggerSchema,
+    }),
+    ApiErrorResponse(HttpStatus.NOT_FOUND, 'WhatsApp account is not connected'),
+  );
+}
+
+export function ApiCatalogConnectionDocs() {
+  return applyDecorators(
+    protectedResponses(),
+    ApiOperation({ summary: 'Get WhatsApp catalog connection' }),
+    ApiResponse({
+      status: HttpStatus.OK,
+      schema: catalogConnectionSwaggerSchema,
+    }),
+    ApiErrorResponse(HttpStatus.NOT_FOUND, 'WhatsApp account is not connected'),
+  );
+}
+
+export function ApiAvailableCatalogsDocs() {
+  return applyDecorators(
+    protectedResponses(),
+    ApiOperation({ summary: 'List available product catalogs' }),
+    ApiResponse({
+      status: HttpStatus.OK,
+      schema: availableCatalogsSwaggerSchema,
+    }),
+    ApiErrorResponse(HttpStatus.NOT_FOUND, 'WhatsApp account is not connected'),
+  );
+}
+
+export function ApiUpdateCatalogSettingsDocs() {
+  return applyDecorators(
+    protectedResponses(),
+    ApiOperation({ summary: 'Update WhatsApp catalog settings' }),
+    ApiBody({ schema: updateCatalogSettingsRequestSwaggerSchema }),
+    ApiResponse({
+      status: HttpStatus.OK,
+      schema: catalogConnectionSwaggerSchema,
+    }),
+    ApiErrorResponse(HttpStatus.BAD_REQUEST, 'No catalog is connected'),
+    ApiErrorResponse(HttpStatus.NOT_FOUND, 'WhatsApp account is not connected'),
   );
 }
