@@ -18,11 +18,18 @@ export class CatalogService {
     private readonly config: ConfigService,
   ) {}
 
+  async connectCatalog(hotelId: string, catalogId: string) {
+    const { account, token } = await this.getConnectedAccount(hotelId);
+
+    await this.meta.connectCatalogToWaba(account.wabaId, catalogId, token);
+
+    return this.getConnection(hotelId);
+  }
+
   async getConnection(hotelId: string) {
     const { account, token } = await this.getConnectedAccount(hotelId);
 
     const catalogs = await this.meta.getWabaCatalogs(account.wabaId, token);
-    console.log(catalogs);
 
     const catalog = catalogs[0] ?? null;
 
@@ -69,6 +76,27 @@ export class CatalogService {
     await this.meta.updateCommerceSettings(account.phoneNumberId, token, input);
 
     return this.getConnection(hotelId);
+  }
+
+  async getAvailableCatalogs(hotelId: string) {
+    const { account, token } = await this.getConnectedAccount(hotelId);
+
+    const systemUserId = await this.meta.getSystemUserId(token);
+
+    const [availableCatalogs, connectedCatalogs] = await Promise.all([
+      this.meta.getAssignedCatalogs(systemUserId, token),
+      this.meta.getWabaCatalogs(account.wabaId, token),
+    ]);
+
+    const connectedCatalogId = connectedCatalogs[0]?.id ?? null;
+
+    return availableCatalogs.map((catalog) => ({
+      id: catalog.id,
+      name: catalog.name,
+      vertical: catalog.vertical ?? null,
+      productCount: catalog.product_count ?? 0,
+      connected: catalog.id === connectedCatalogId,
+    }));
   }
 
   // shared query function for DRY rule

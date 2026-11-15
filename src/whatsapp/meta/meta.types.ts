@@ -63,3 +63,11 @@ export type MetaCommerceSetting = {
 export type MetaCommerceSettingsResponse = {
   data: MetaCommerceSetting[];
 };
+
+export type MetaAssignedProductCatalog = MetaProductCatalog & {
+  access_type?: string;
+};
+
+export type MetaAssignedProductCatalogsResponse = {
+  data: MetaAssignedProductCatalog[];
+};

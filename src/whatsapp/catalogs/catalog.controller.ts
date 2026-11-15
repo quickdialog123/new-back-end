@@ -7,7 +7,9 @@ import { UserRole } from '@quickdialog/generated/prisma/client.js';
 import { SWAGGER_TAGS } from '@quickdialog/swagger/swagger.tags.js';
 import { CatalogService } from './catalog.service.js';
 import {
+  connectCatalogSchema,
   updateCatalogSettingsSchema,
+  type ConnectCatalogDto,
   type UpdateCatalogSettingsDto,
 } from './schemas/catalog.schema.js';
 
@@ -16,10 +18,26 @@ import {
 export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}
 
+  @Post('connect')
+  @Roles(UserRole.OWNER)
+  connectCatalog(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body({ schema: connectCatalogSchema })
+    input: ConnectCatalogDto,
+  ) {
+    return this.catalogService.connectCatalog(user.hotelId!, input.catalogId);
+  }
+
   @Get('connection')
   @Roles(UserRole.OWNER)
   getConnection(@CurrentUser() user: AuthenticatedUser) {
     return this.catalogService.getConnection(user.hotelId!);
+  }
+
+  @Get('available')
+  @Roles(UserRole.OWNER)
+  getAvailableCatalogs(@CurrentUser() user: AuthenticatedUser) {
+    return this.catalogService.getAvailableCatalogs(user.hotelId!);
   }
 
   @Patch('settings')

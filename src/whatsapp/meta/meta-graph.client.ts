@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { HttpClient } from '@nestjs/http-client';
 import type {
   MetaAccessTokenResponse,
+  MetaAssignedProductCatalogsResponse,
   MetaClientBusinessResponse,
   MetaCommerceSettingsResponse,
   MetaPhoneNumbersResponse,
@@ -107,6 +108,29 @@ export class MetaGraphClient {
     return data;
   }
 
+  async connectCatalogToWaba(
+    wabaId: string,
+    catalogId: string,
+    accessToken: string,
+  ): Promise<void> {
+    const params = new URLSearchParams({
+      catalog_id: catalogId,
+    });
+
+    const { data } = await this.http.post<MetaSuccessResponse>(
+      `/${this.version}/${wabaId}/product_catalogs?${params.toString()}`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    if (!data.success) {
+      throw new Error('Meta did not connect the catalog');
+    }
+  }
+
   async getWabaCatalogs(
     wabaId: string,
     accessToken: string,
@@ -184,5 +208,35 @@ export class MetaGraphClient {
     );
 
     return data;
+  }
+
+  async getSystemUserId(accessToken: string): Promise<string> {
+    const { data } = await this.http.get<{
+      id: string;
+    }>(`/${this.version}/me?fields=id`, {
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    return data.id;
+  }
+
+  async getAssignedCatalogs(
+    systemUserId: string,
+    accessToken: string,
+  ): Promise<MetaAssignedProductCatalogsResponse['data']> {
+    const fields = ['id', 'name', 'vertical', 'product_count'].join(',');
+
+    const { data } = await this.http.get<MetaAssignedProductCatalogsResponse>(
+      `/${this.version}/${systemUserId}/assigned_product_catalogs?fields=${fields}`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    return data.data;
   }
 }
