@@ -50,6 +50,8 @@ export const envSchema = z.object({
   META_TOKEN_ENCRYPTION_KEY: z.string().min(1),
   META_WEBHOOK_VERIFY_TOKEN: z.string().min(32),
   META_EMBEDDED_SIGNUP_CONFIG_ID: z.string().min(1),
+  META_BUSINESS_ID: z.string().min(1).optional(),
+  META_SYSTEM_USER_ACCESS_TOKEN: z.string().min(1).optional(),
 });
 
 export type Environment = z.infer<typeof envSchema>;

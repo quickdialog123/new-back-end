@@ -1,11 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HttpClient, HttpResponseError } from '@nestjs/http-client';
+import { HttpClient } from '@nestjs/http-client';
 import type {
   MetaAccessTokenResponse,
   MetaClientBusinessResponse,
   MetaCommerceSettingsResponse,
-  MetaCreateCatalogResponse,
   MetaPhoneNumbersResponse,
   MetaProductCatalogsResponse,
   MetaRegisterPhoneNumberResponse,
@@ -108,24 +107,6 @@ export class MetaGraphClient {
     return data;
   }
 
-  async getOwnedCatalogs(
-    businessId: string,
-    accessToken: string,
-  ): Promise<MetaProductCatalogsResponse['data']> {
-    const fields = ['id', 'name', 'vertical', 'product_count'].join(',');
-
-    const { data } = await this.http.get<MetaProductCatalogsResponse>(
-      `/${this.version}/${businessId}/owned_product_catalogs?fields=${fields}`,
-      {
-        headers: {
-          authorization: `Bearer ${accessToken}`,
-        },
-      },
-    );
-
-    return data.data;
-  }
-
   async getWabaCatalogs(
     wabaId: string,
     accessToken: string,
@@ -142,67 +123,6 @@ export class MetaGraphClient {
     );
 
     return data.data;
-  }
-
-  async createCatalog(
-    businessId: string,
-    name: string,
-    accessToken: string,
-  ): Promise<string> {
-    const params = new URLSearchParams({
-      name: name.trim(),
-      vertical: 'commerce',
-    });
-
-    try {
-      const { data } = await this.http.post<MetaCreateCatalogResponse>(
-        `/${this.version}/${businessId}/owned_product_catalogs?${params.toString()}`,
-        {
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-        },
-      );
-
-      return data.id;
-    } catch (error) {
-      if (error instanceof HttpResponseError) {
-        console.error('Meta create catalog failed', {
-          status: error.status,
-
-          statusText: error.statusText,
-
-          body: error.body,
-
-          businessId,
-          catalogName: name,
-        });
-      }
-
-      throw error;
-    }
-  }
-
-  async connectCatalogToWaba(
-    wabaId: string,
-    catalogId: string,
-    accessToken: string,
-  ): Promise<void> {
-    const { data } = await this.http.post<MetaSuccessResponse>(
-      `/${this.version}/${wabaId}/product_catalogs`,
-      {
-        headers: {
-          authorization: `Bearer ${accessToken}`,
-        },
-        json: {
-          catalog_id: catalogId,
-        },
-      },
-    );
-
-    if (!data.success) {
-      throw new Error('Meta did not connect the catalog');
-    }
   }
 
   async getCommerceSettings(
@@ -251,5 +171,18 @@ export class MetaGraphClient {
     if (!data.success) {
       throw new Error('Meta did not update commerce settings');
     }
+  }
+
+  async getCatalog(catalogId: string, accessToken: string) {
+    const { data } = await this.http.get(
+      `/${this.version}/${catalogId}?fields=id,name,vertical`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    return data;
   }
 }

@@ -1,9 +1,5 @@
 import { z } from 'zod';
 
-export const createCatalogSchema = z.object({
-  name: z.string().trim().min(1).max(100),
-});
-
 export const connectCatalogSchema = z.object({
   catalogId: z.string().min(1),
 });
@@ -21,7 +17,6 @@ export const updateCatalogSettingsSchema = z
     },
   );
 
-export type CreateCatalogDto = z.infer<typeof createCatalogSchema>;
 export type ConnectCatalogDto = z.infer<typeof connectCatalogSchema>;
 export type UpdateCatalogSettingsDto = z.infer<
   typeof updateCatalogSettingsSchema
