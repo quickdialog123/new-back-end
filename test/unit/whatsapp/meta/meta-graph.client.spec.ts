@@ -1,4 +1,8 @@
 import { ConfigService } from '@nestjs/config';
+import {
+  BadGatewayException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { HttpClient, HttpResponseError } from '@nestjs/http-client';
 import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -98,6 +102,101 @@ describe('MetaGraphClient', () => {
         pin: '654321',
       },
     });
+  });
+
+  it('discovers owned and client catalogs for a business', async () => {
+    get
+      .mockResolvedValueOnce({
+        data: { data: [{ id: 'owned', name: 'Owned' }] },
+      })
+      .mockResolvedValueOnce({
+        data: { data: [{ id: 'client', name: 'Client' }] },
+      });
+
+    await expect(
+      client.getProductCatalogs('business-id', 'access-token'),
+    ).resolves.toEqual([
+      { id: 'owned', name: 'Owned' },
+      { id: 'client', name: 'Client' },
+    ]);
+    expect(get).toHaveBeenNthCalledWith(
+      1,
+      '/v26.0/business-id/owned_product_catalogs?fields=id%2Cname%2Cproduct_count&limit=100',
+      { headers: { authorization: 'Bearer access-token' } },
+    );
+    expect(get).toHaveBeenNthCalledWith(
+      2,
+      '/v26.0/business-id/client_product_catalogs?fields=id%2Cname%2Cproduct_count&limit=100',
+      { headers: { authorization: 'Bearer access-token' } },
+    );
+  });
+
+  it('lists catalog items with an optional cursor', async () => {
+    get.mockResolvedValueOnce({ data: { data: [{ id: 'graph-id' }] } });
+
+    await expect(
+      client.getCatalogProducts('catalog-id', 'access-token', 'cursor'),
+    ).resolves.toEqual({ data: [{ id: 'graph-id' }] });
+    expect(get).toHaveBeenCalledWith(
+      '/v26.0/catalog-id/products?fields=id%2Cretailer_id%2Cname%2Cdescription%2Curl%2Cimage_url%2Cavailability%2Cprice%2Ccurrency%2Cbrand%2Ccondition&limit=100&after=cursor',
+      { headers: { authorization: 'Bearer access-token' } },
+    );
+  });
+
+  it('submits product batch operations and reads their processing status', async () => {
+    post.mockResolvedValueOnce({ data: { handles: ['batch-handle'] } });
+    get.mockResolvedValueOnce({
+      data: { data: [{ handle: 'batch-handle', status: 'finished' }] },
+    });
+
+    await client.submitCatalogProductBatch('catalog-id', 'access-token', [
+      { method: 'DELETE', data: { id: 'retailer-id' } },
+    ]);
+    await expect(
+      client.getCatalogBatchStatus(
+        'catalog-id',
+        'access-token',
+        'batch-handle',
+      ),
+    ).resolves.toEqual({ handle: 'batch-handle', status: 'finished' });
+
+    expect(post).toHaveBeenCalledWith('/v26.0/catalog-id/items_batch', {
+      headers: { authorization: 'Bearer access-token' },
+      json: {
+        item_type: 'PRODUCT_ITEM',
+        allow_upsert: false,
+        requests: [{ method: 'DELETE', data: { id: 'retailer-id' } }],
+      },
+    });
+    expect(get).toHaveBeenCalledWith(
+      '/v26.0/catalog-id/check_batch_request_status?handle=batch-handle&load_ids_of_invalid_requests=true&fields=handle%2Cstatus%2Cwarnings%2Cerrors_total_count%2Cids_of_invalid_requests',
+      { headers: { authorization: 'Bearer access-token' } },
+    );
+  });
+
+  it('normalizes Meta and network errors for catalog operations', async () => {
+    get.mockRejectedValueOnce(
+      new HttpResponseError({
+        method: 'GET',
+        url: 'https://graph.facebook.com/v26.0/catalog-id/products',
+        status: 400,
+        body: {
+          error: {
+            message: 'Catalog permission denied',
+            type: 'OAuthException',
+            code: 200,
+          },
+        },
+      }),
+    );
+    await expect(
+      client.getCatalogProducts('catalog-id', 'access-token'),
+    ).rejects.toBeInstanceOf(BadGatewayException);
+
+    get.mockRejectedValueOnce(new Error('network detail'));
+    await expect(
+      client.getCatalogProducts('catalog-id', 'access-token'),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
   it('encodes Meta asset IDs as single path segments', async () => {

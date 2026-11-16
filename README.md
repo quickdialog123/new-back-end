@@ -71,6 +71,10 @@ The project is intentionally kept as a modular monolith. Business features live 
 │   │   │   ├── webhook.controller.ts
 │   │   │   ├── webhook.service.ts
 │   │   │   └── webhook.types.ts
+│   │   ├── catalog/
+│   │   │   ├── catalog.controller.ts
+│   │   │   ├── catalog.service.ts
+│   │   │   └── product.schema.ts
 │   │   ├── whatsapp.controller.ts
 │   │   ├── whatsapp.module.ts
 │   │   └── whatsapp.service.ts
@@ -176,6 +180,19 @@ The frontend should prompt for a PIN whenever status is `unverified`. Submit it 
 - `GET /api/whatsapp/status` to read the current state.
 
 The API does not persist the PIN. Meta credentials and tokens remain server-side; the token is stored encrypted and is never included in status responses.
+
+### Meta product catalogs
+
+Hotel owners can manage products in catalogs accessible to their connected Meta business. Catalog and product data is read directly from Meta; QuickDialog does not persist a local product copy. Catalog IDs selected by the frontend are checked against catalogs accessible to the authenticated owner's hotel before each operation.
+
+- `GET /api/whatsapp/catalogs` lists catalogs accessible to the hotel's Meta business.
+- `GET /api/whatsapp/catalogs/:catalogId/products` lists products; use the returned paging cursor as `?after=...` for the next page.
+- `POST /api/whatsapp/catalogs/:catalogId/products` submits a product create operation.
+- `PATCH /api/whatsapp/catalogs/:catalogId/products/:productId` submits a product update.
+- `DELETE /api/whatsapp/catalogs/:catalogId/products/:productId` submits a product deletion.
+- `GET /api/whatsapp/catalogs/:catalogId/operations/:handle` checks the Meta batch status. When finished, the response includes refreshed product data.
+
+Product creation accepts name, description, product URL, image URL, price, ISO currency code, availability, brand, and condition. The backend generates the Meta retailer product ID and returns it for later update/delete requests. Price and currency are combined into Meta's expected format (for example, `12.50 USD`). Meta batch writes can complete asynchronously; write endpoints return status and a handle, and clients should poll the operation endpoint while status is still processing.
 
 ## Validation
 

@@ -117,8 +117,8 @@ export class AuthController {
 
     return {
       httpOnly: true,
-      secure: this.config.getOrThrow<string>('app.nodeEnv') === 'production',
-      sameSite: 'lax' as const,
+      secure: true,
+      sameSite: 'none' as const,
       path: `/${prefix}/auth`,
       maxAge: durationToMs(ttl) / 1000,
     };

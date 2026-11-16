@@ -1,14 +1,23 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadGatewayException,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HttpClient } from '@nestjs/http-client';
+import { HttpClient, HttpResponseError } from '@nestjs/http-client';
 import type {
   MetaAccessTokenResponse,
-  MetaAssignedProductCatalogsResponse,
+  MetaAssignedCatalogsResponse,
   MetaClientBusinessResponse,
   MetaCommerceSettingsResponse,
   MetaPhoneNumbersResponse,
-  MetaProductCatalogsResponse,
+  MetaCatalogsResponse,
   MetaRegisterPhoneNumberResponse,
+  MetaCatalogBatchStatus,
+  MetaProductsResponse,
+  MetaProductBatchRequest,
+  MetaProductBatchResponse,
+  MetaCatalog,
   MetaSuccessResponse,
 } from './meta.types.js';
 
@@ -108,6 +117,136 @@ export class MetaGraphClient {
     return data;
   }
 
+  async getProductCatalogs(
+    businessId: string,
+    accessToken: string,
+  ): Promise<MetaCatalog[]> {
+    const version = this.config.getOrThrow<string>('meta.graphVersion');
+    const catalogs = new Map<string, MetaCatalog>();
+
+    await this.withMetaErrors(async () => {
+      for (const edge of [
+        'owned_product_catalogs',
+        'client_product_catalogs',
+      ]) {
+        let after: string | undefined;
+        do {
+          const params = new URLSearchParams({
+            fields: 'id,name,product_count',
+            limit: '100',
+          });
+          if (after) params.set('after', after);
+          const { data } = await this.http.get<MetaCatalogsResponse>(
+            `/${version}/${encodeURIComponent(businessId)}/${edge}?${params}`,
+            {
+              headers: { authorization: `Bearer ${accessToken}` },
+            },
+          );
+          for (const catalog of data.data ?? []) {
+            catalogs.set(catalog.id, catalog);
+          }
+          after = data.paging?.cursors?.after;
+        } while (after);
+      }
+    });
+
+    return [...catalogs.values()];
+  }
+
+  async getCatalogProducts(
+    catalogId: string,
+    accessToken: string,
+    after?: string,
+  ): Promise<MetaProductsResponse> {
+    const version = this.config.getOrThrow<string>('meta.graphVersion');
+    const params = new URLSearchParams({
+      fields:
+        'id,retailer_id,name,description,url,image_url,availability,price,currency,brand,condition',
+      limit: '100',
+    });
+    if (after) params.set('after', after);
+    return this.withMetaErrors(async () => {
+      const { data } = await this.http.get<MetaProductsResponse>(
+        `/${version}/${encodeURIComponent(catalogId)}/products?${params}`,
+        { headers: { authorization: `Bearer ${accessToken}` } },
+      );
+      return data;
+    });
+  }
+
+  async submitCatalogProductBatch(
+    catalogId: string,
+    accessToken: string,
+    requests: MetaProductBatchRequest[],
+  ): Promise<MetaProductBatchResponse> {
+    const version = this.config.getOrThrow<string>('meta.graphVersion');
+    return this.withMetaErrors(async () => {
+      const { data } = await this.http.post<MetaProductBatchResponse>(
+        `/${version}/${encodeURIComponent(catalogId)}/items_batch`,
+        {
+          headers: { authorization: `Bearer ${accessToken}` },
+          json: {
+            item_type: 'PRODUCT_ITEM',
+            allow_upsert: false,
+            requests,
+          },
+        },
+      );
+      return data;
+    });
+  }
+
+  async getCatalogBatchStatus(
+    catalogId: string,
+    accessToken: string,
+    handle: string,
+  ): Promise<MetaCatalogBatchStatus> {
+    const version = this.config.getOrThrow<string>('meta.graphVersion');
+    const params = new URLSearchParams({
+      handle,
+      load_ids_of_invalid_requests: 'true',
+      fields:
+        'handle,status,warnings,errors_total_count,ids_of_invalid_requests',
+    });
+    return this.withMetaErrors(async () => {
+      const { data } = await this.http.get<{
+        data: MetaCatalogBatchStatus[];
+      }>(
+        `/${version}/${encodeURIComponent(catalogId)}/check_batch_request_status?${params}`,
+        { headers: { authorization: `Bearer ${accessToken}` } },
+      );
+      const status = data.data?.[0];
+      if (!status) {
+        throw new BadGatewayException('Meta returned no catalog batch status');
+      }
+      return status;
+    });
+  }
+
+  private async withMetaErrors<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (error instanceof BadGatewayException) throw error;
+      if (error instanceof HttpResponseError) {
+        const body = error.body as
+          | { error?: { message?: string; code?: number; type?: string } }
+          | undefined;
+        throw new BadGatewayException({
+          code: 'META_API_ERROR',
+          message: 'Meta rejected the catalog request',
+          details: {
+            status: error.status,
+            metaCode: body?.error?.code,
+            metaType: body?.error?.type,
+            metaMessage: body?.error?.message,
+          },
+        });
+      }
+      throw new ServiceUnavailableException('Meta API is unavailable');
+    }
+  }
+
   async connectCatalogToWaba(
     wabaId: string,
     catalogId: string,
@@ -134,10 +273,10 @@ export class MetaGraphClient {
   async getWabaCatalogs(
     wabaId: string,
     accessToken: string,
-  ): Promise<MetaProductCatalogsResponse['data']> {
+  ): Promise<MetaCatalogsResponse['data']> {
     const fields = ['id', 'name', 'vertical', 'product_count'].join(',');
 
-    const { data } = await this.http.get<MetaProductCatalogsResponse>(
+    const { data } = await this.http.get<MetaCatalogsResponse>(
       `/${this.version}/${wabaId}/product_catalogs?fields=${fields}`,
       {
         headers: {
@@ -212,10 +351,10 @@ export class MetaGraphClient {
   async getAssignedCatalogs(
     systemUserId: string,
     accessToken: string,
-  ): Promise<MetaAssignedProductCatalogsResponse['data']> {
+  ): Promise<MetaAssignedCatalogsResponse['data']> {
     const fields = ['id', 'name', 'vertical', 'product_count'].join(',');
 
-    const { data } = await this.http.get<MetaAssignedProductCatalogsResponse>(
+    const { data } = await this.http.get<MetaAssignedCatalogsResponse>(
       `/${this.version}/${systemUserId}/assigned_product_catalogs?fields=${fields}`,
       {
         headers: {
