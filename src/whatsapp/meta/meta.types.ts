@@ -144,8 +144,17 @@ export type MetaTemplateRequestButton =
   | { type: 'PHONE_NUMBER'; text: string; phone_number: string };
 
 export type MetaTemplateRequestComponent =
-  | { type: 'HEADER'; format: 'TEXT'; text: string; example?: { header_text: string[] } }
-  | { type: 'HEADER'; format: 'IMAGE' | 'VIDEO' | 'DOCUMENT'; example: { header_handle: string[] } }
+  | {
+      type: 'HEADER';
+      format: 'TEXT';
+      text: string;
+      example?: { header_text: string[] };
+    }
+  | {
+      type: 'HEADER';
+      format: 'IMAGE' | 'VIDEO' | 'DOCUMENT';
+      example: { header_handle: string[] };
+    }
   | { type: 'BODY'; text: string; example?: { body_text: string[][] } }
   | { type: 'FOOTER'; text: string }
   | { type: 'BUTTONS'; buttons: MetaTemplateRequestButton[] };
@@ -157,7 +166,10 @@ export type MetaTemplateCreatePayload = {
   components: MetaTemplateRequestComponent[];
 };
 
-export type MetaTemplateEditPayload = Pick<MetaTemplateCreatePayload, 'category' | 'components'>;
+export type MetaTemplateEditPayload = Pick<
+  MetaTemplateCreatePayload,
+  'category' | 'components'
+>;
 
 export type MetaTemplate = {
   id: string;

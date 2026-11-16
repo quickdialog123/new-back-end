@@ -124,6 +124,7 @@ export class AuthService {
       },
     });
 
+    console.log('Before check');
     if (!currentSession) {
       throw this.invalidCredentials();
     }
@@ -138,12 +139,18 @@ export class AuthService {
       throw this.invalidCredentials();
     }
 
+    console.log('After check 2');
+
     /**
      * Refresh token naturally expired.
      */
     if (currentSession.expiresAt <= now) {
       throw this.invalidCredentials();
     }
+    console.log(
+      "Current session's absolute expiration:",
+      currentSession.absoluteExpiresAt,
+    );
 
     /**
      * Whole login session reached its
@@ -154,6 +161,7 @@ export class AuthService {
 
       throw this.invalidCredentials();
     }
+    console.log('After check 4');
 
     /**
      * Disabled users cannot continue
