@@ -322,7 +322,6 @@ export class MetaGraphClient {
   ): Promise<MetaAssignedCatalogsResponse['data']> {
     const fields = ['id', 'name', 'vertical', 'product_count'].join(',');
 
-    console.log('Fetching assigned catalogs for system user:', accessToken);
     return this.withMetaErrors(async () => {
       const { data } = await this.http.get<MetaAssignedCatalogsResponse>(
         `/${this.version}/${systemUserId}/assigned_product_catalogs?fields=${fields}`,
