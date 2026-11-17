@@ -223,7 +223,7 @@ export class MetaGraphClient {
       `/${this.version}/${wabaId}/product_catalogs?${params.toString()}`,
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          authorization: `Bearer ${accessToken}`,
         },
       },
     );
