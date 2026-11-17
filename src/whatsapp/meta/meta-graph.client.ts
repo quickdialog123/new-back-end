@@ -307,19 +307,6 @@ export class MetaGraphClient {
 
         const metaError = body?.error;
 
-        console.error('Meta catalog connection failed', {
-          wabaId,
-          catalogId,
-          httpStatus: error.status,
-          metaCode: metaError?.code,
-          metaSubcode: metaError?.error_subcode,
-          metaType: metaError?.type,
-          metaMessage: metaError?.message,
-          metaUserTitle: metaError?.error_user_title,
-          metaUserMessage: metaError?.error_user_msg,
-          metaTraceId: metaError?.fbtrace_id,
-        });
-
         throw new BadGatewayException({
           code: 'META_API_ERROR',
           message: 'Meta rejected the catalog connection request',
@@ -335,11 +322,6 @@ export class MetaGraphClient {
           },
         });
       }
-
-      console.error(
-        'Unexpected error connecting catalog to WABA',
-        error instanceof Error ? error.stack : String(error),
-      );
 
       if (error instanceof BadGatewayException) {
         throw error;
