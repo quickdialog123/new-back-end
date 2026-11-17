@@ -74,11 +74,9 @@ The project is intentionally kept as a modular monolith. Business features live 
 │   │   ├── catalog/
 │   │   │   ├── catalog.controller.ts
 │   │   │   ├── catalog.service.ts
-│   │   │   ├── connection.controller.ts
-│   │   │   ├── connection.service.ts
-│   │   │   ├── product.schema.ts
 │   │   │   └── schemas/
-│   │   │       └── connection.schema.ts
+│   │   │       ├── connection.schema.ts
+│   │   │       └── product.schema.ts
 │   │   ├── whatsapp.controller.ts
 │   │   ├── whatsapp.module.ts
 │   │   └── whatsapp.service.ts

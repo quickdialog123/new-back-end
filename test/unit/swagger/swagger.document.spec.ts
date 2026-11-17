@@ -13,8 +13,6 @@ import { HealthController } from '@quickdialog/health/health.controller.js';
 import { HealthService } from '@quickdialog/health/health.service.js';
 import { EmbeddedSignupController } from '@quickdialog/whatsapp/embedded-signup/embedded-signup.controller.js';
 import { EmbeddedSignupService } from '@quickdialog/whatsapp/embedded-signup/embedded-signup.service.js';
-import { CatalogConnectionController } from '@quickdialog/whatsapp/catalog/connection.controller.js';
-import { CatalogConnectionService } from '@quickdialog/whatsapp/catalog/connection.service.js';
 import { CatalogProductsController } from '@quickdialog/whatsapp/catalog/catalog.controller.js';
 import { CatalogProductsService } from '@quickdialog/whatsapp/catalog/catalog.service.js';
 import { MetaGraphClient } from '@quickdialog/whatsapp/meta/meta-graph.client.js';
@@ -38,7 +36,6 @@ describe('Swagger API contract', () => {
         HealthController,
         WhatsappController,
         EmbeddedSignupController,
-        CatalogConnectionController,
         CatalogProductsController,
       ],
       providers: [
@@ -46,7 +43,6 @@ describe('Swagger API contract', () => {
         { provide: HealthService, useValue: {} },
         { provide: WhatsappService, useValue: {} },
         { provide: EmbeddedSignupService, useValue: {} },
-        { provide: CatalogConnectionService, useValue: {} },
         { provide: CatalogProductsService, useValue: {} },
         { provide: MetaGraphClient, useValue: {} },
         { provide: ConfigService, useValue: config },
