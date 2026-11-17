@@ -68,17 +68,17 @@ export class WhatsappService {
 
   async getConnectedCatalog(hotelId: string) {
     const { wabaId, token } = await this.catalogConnection(hotelId);
-    const catalogs = await this.meta.listProductCatalogs(wabaId, token);
+    const catalogs = await this.meta.getWabaCatalogs(wabaId, token);
     const linked = catalogs[0];
     return { wabaId, catalog: linked ? { id: linked.id, name: linked.name ?? null } : null };
   }
 
   async connectCatalog(hotelId: string, catalogId: string) {
     const { wabaId, token } = await this.catalogConnection(hotelId);
-    const catalogs = await this.meta.listProductCatalogs(wabaId, token);
+    const catalogs = await this.meta.getWabaCatalogs(wabaId, token);
     const linked = catalogs.find((catalog) => catalog.id === catalogId);
     if (linked) return { wabaId, catalog: { id: linked.id, name: linked.name ?? null } };
-    await this.meta.connectProductCatalog(wabaId, token, catalogId);
+    await this.meta.connectCatalogToWaba(wabaId, catalogId, token);
     return { wabaId, catalog: { id: catalogId, name: null } };
   }
 
