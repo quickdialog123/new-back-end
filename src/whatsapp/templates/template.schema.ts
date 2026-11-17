@@ -44,3 +44,5 @@ export const templateInputSchema = z.object({
 export const templateIdSchema = z.object({ id: z.string().regex(/^\d+$/) });
 export const templateListSchema = z.object({ after: z.string().min(1).optional() });
 export type TemplateInput = z.infer<typeof templateInputSchema>;
+export type TemplateIdParamDto = z.infer<typeof templateIdSchema>;
+export type TemplateListQueryDto = z.infer<typeof templateListSchema>;

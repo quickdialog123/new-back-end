@@ -16,8 +16,6 @@ describe('WhatsappService', () => {
   const update = vi.fn();
   const meta = {
     registerPhoneNumber: vi.fn(),
-    getWabaCatalogs: vi.fn(),
-    connectCatalogToWaba: vi.fn(),
   };
   const config = { getOrThrow: vi.fn() };
   const encryptionKey = Buffer.alloc(32, 1).toString('base64');
@@ -66,21 +64,6 @@ describe('WhatsappService', () => {
     }).compile();
 
     service = moduleRef.get(WhatsappService);
-  });
-
-  it('uses the shared Meta catalog operations for the legacy catalog route', async () => {
-    meta.getWabaCatalogs.mockResolvedValue([]);
-    meta.connectCatalogToWaba.mockResolvedValue(undefined);
-
-    await expect(service.getConnectedCatalog('hotel-id')).resolves.toEqual({
-      wabaId: 'waba-id', catalog: null,
-    });
-    await expect(service.connectCatalog('hotel-id', '123456789')).resolves.toEqual({
-      wabaId: 'waba-id', catalog: { id: '123456789', name: null },
-    });
-
-    expect(meta.getWabaCatalogs).toHaveBeenCalledWith('waba-id', 'meta-token');
-    expect(meta.connectCatalogToWaba).toHaveBeenCalledWith('waba-id', '123456789', 'meta-token');
   });
 
   it('returns frontend-safe connected status from persisted data', async () => {

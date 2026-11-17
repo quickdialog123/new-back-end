@@ -10,14 +10,21 @@ import type {
   MetaCatalogsResponse,
   MetaRegisterPhoneNumberResponse,
   MetaCatalogBatchStatus,
+  MetaCatalogBatchStatusResponse,
   MetaProductsResponse,
   MetaProductBatchRequest,
   MetaProductBatchResponse,
   MetaCatalog,
   MetaSuccessResponse,
   MetaTemplate,
+  MetaTemplateCreatePayload,
+  MetaTemplateEditPayload,
+  MetaTemplateEditResponse,
   MetaTemplateList,
   MetaTemplateSubmission,
+  MetaSystemUserResponse,
+  MetaUploadSessionResponse,
+  MetaUploadFileResponse,
 } from './meta.types.js';
 
 @Injectable()
@@ -192,9 +199,7 @@ export class MetaGraphClient {
       fields:
         'handle,status,warnings,errors_total_count,ids_of_invalid_requests',
     });
-    const { data } = await this.http.get<{
-      data: MetaCatalogBatchStatus[];
-    }>(
+    const { data } = await this.http.get<MetaCatalogBatchStatusResponse>(
       `/${this.version}/${encodeURIComponent(catalogId)}/check_batch_request_status?${params}`,
       { headers: { authorization: `Bearer ${accessToken}` } },
     );
@@ -298,9 +303,7 @@ export class MetaGraphClient {
   }
 
   async getSystemUserId(accessToken: string): Promise<string> {
-    const { data } = await this.http.get<{
-      id: string;
-    }>(`/${this.version}/me?fields=id`, {
+    const { data } = await this.http.get<MetaSystemUserResponse>(`/${this.version}/me?fields=id`, {
       headers: {
         authorization: `Bearer ${accessToken}`,
       },
@@ -378,15 +381,15 @@ export class MetaGraphClient {
     return data;
   }
 
-  async createTemplate(wabaId: string, token: string, payload: unknown) {
+  async createTemplate(wabaId: string, token: string, payload: MetaTemplateCreatePayload) {
     const { data } = await this.http.post<MetaTemplateSubmission>(this.templatePath(wabaId), {
       ...this.auth(token), json: payload,
     });
     return data;
   }
 
-  async editTemplate(id: string, token: string, payload: unknown) {
-    const { data } = await this.http.post<MetaTemplateSubmission>(this.templateIdPath(id), {
+  async editTemplate(id: string, token: string, payload: MetaTemplateEditPayload) {
+    const { data } = await this.http.post<MetaTemplateEditResponse>(this.templateIdPath(id), {
       ...this.auth(token), json: payload,
     });
     return data;
@@ -399,23 +402,18 @@ export class MetaGraphClient {
   }
 
   async uploadTemplateMedia(token: string, file: Buffer, fileName: string, mimeType: string): Promise<string> {
-    let session: { id: string };
-    try {
-      ({ data: session } = await this.http.post<{ id: string }>(`/${this.version}/${this.appId}/uploads`, {
-        ...this.auth(token),
-        query: { file_length: file.length, file_type: mimeType, file_name: fileName },
-      }));
-    } catch (error) {
+    const { data: session } = await this.http.post<MetaUploadSessionResponse>(`/${this.version}/${this.appId}/uploads`, {
+      ...this.auth(token),
+      query: { file_length: file.length, file_type: mimeType, file_name: fileName },
+    }).catch((error) => {
       throw Object.assign(error as Error, { uploadStage: 'SESSION' });
-    }
-    try {
-      const { data } = await this.http.post<{ h: string }>(`/${this.version}/${session.id}`, {
-        headers: { authorization: `Bearer ${token}`, file_offset: '0', 'content-type': 'application/octet-stream' },
-        body: Uint8Array.from(file).buffer,
-      });
-      return data.h;
-    } catch (error) {
+    });
+    const { data } = await this.http.post<MetaUploadFileResponse>(`/${this.version}/${session.id}`, {
+      headers: { authorization: `Bearer ${token}`, file_offset: '0', 'content-type': 'application/octet-stream' },
+      body: Uint8Array.from(file).buffer,
+    }).catch((error) => {
       throw Object.assign(error as Error, { uploadStage: 'FILE' });
-    }
+    });
+    return data.h;
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { HttpResponseError } from '@nestjs/http-client';
 import { encryptMetaToken } from '@quickdialog/whatsapp/meta/meta-token.util.js';
 import { TemplatesService } from '@quickdialog/whatsapp/templates/templates.service.js';
@@ -47,6 +47,29 @@ describe('TemplatesService', () => {
       body: 'Hi {{firstname}}', footer: null, buttons: [], sampleValues: { firstname: 'Amelia' },
     });
     await expect(response).rejects.toBe(metaError);
+  });
+
+  it('rejects a create response without a template ID', async () => {
+    meta.createTemplate.mockResolvedValueOnce({ id: '', status: 'PENDING', category: 'UTILITY' });
+    await expect(service.create('hotel-1', {
+      name: 'welcome', category: 'UTILITY', language: 'en_GB', header: null,
+      body: 'Hello', footer: null, buttons: [],
+    })).rejects.toBeInstanceOf(BadGatewayException);
+  });
+
+  it('rejects an empty media handle from Meta', async () => {
+    meta.uploadTemplateMedia.mockResolvedValueOnce('');
+    await expect(service.uploadMedia('hotel-1', Buffer.from('image'), 'header.png', 'image/png')).rejects.toBeInstanceOf(BadGatewayException);
+  });
+
+  it('rejects an unconfirmed template edit', async () => {
+    meta.listTemplates.mockResolvedValueOnce({ data: [{ id: '123', name: 'welcome', language: 'en_GB' }], paging: {} });
+    meta.editTemplate.mockResolvedValueOnce({ success: false, id: '123', name: 'welcome', category: 'UTILITY' });
+    await expect(service.edit('hotel-1', '123', {
+      name: 'welcome', category: 'UTILITY', language: 'en_GB', header: null,
+      body: 'Hello', footer: null, buttons: [],
+    })).rejects.toBeInstanceOf(BadGatewayException);
+    expect(meta.getTemplate).not.toHaveBeenCalled();
   });
 
   it('rejects template IDs outside the connected WABA before detail', async () => {
@@ -108,5 +131,16 @@ describe('TemplatesService', () => {
     await expect(service.uploadMedia('hotel-1', file, 'header.png', 'image/png')).resolves.toEqual({ mediaHandle: 'meta-handle' });
     expect(meta.uploadTemplateMedia).toHaveBeenCalledWith('secret-token', file, 'header.png', 'image/png');
     await expect(service.uploadMedia('hotel-1', file, '../bad.png', 'image/png')).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('returns the updated template after Meta confirms the edit', async () => {
+    const template = { id: '123', name: 'welcome', language: 'en_GB', category: 'UTILITY', status: 'PENDING', components: [{ type: 'BODY', text: 'Hello' }] };
+    meta.listTemplates.mockResolvedValueOnce({ data: [template], paging: {} });
+    meta.editTemplate.mockResolvedValueOnce({ success: true, id: '123', name: 'welcome', category: 'UTILITY' });
+    meta.getTemplate.mockResolvedValueOnce(template);
+    await expect(service.edit('hotel-1', '123', {
+      name: 'welcome', category: 'UTILITY', language: 'en_GB', header: null,
+      body: 'Hello', footer: null, buttons: [],
+    })).resolves.toMatchObject({ id: '123', body: 'Hello', status: 'PENDING' });
   });
 });

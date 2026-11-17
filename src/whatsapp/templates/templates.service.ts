@@ -1,9 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@quickdialog/database/prisma.service.js';
 import { MetaGraphClient } from '../meta/meta-graph.client.js';
 import { decryptMetaToken } from '../meta/meta-token.util.js';
-import type { MetaTemplate } from '../meta/meta.types.js';
+import type { MetaTemplate, MetaTemplateButton, MetaTemplateRequestButton, MetaTemplateRequestComponent } from '../meta/meta.types.js';
 import type { TemplateInput } from './template.schema.js';
 
 @Injectable()
@@ -58,7 +58,7 @@ export class TemplatesService {
       header: headerValue,
       body: typeof body?.text === 'string' ? body.text : '',
       footer: typeof footer?.text === 'string' ? footer.text : null,
-      buttons: Array.isArray(buttons?.buttons) ? buttons.buttons.map((item: Record<string, unknown>) => ({
+      buttons: Array.isArray(buttons?.buttons) ? buttons.buttons.map((item: MetaTemplateButton) => ({
         type: item.type,
         text: item.text,
         ...(item.type === 'URL' ? { url: item.url } : {}),
@@ -90,18 +90,30 @@ export class TemplatesService {
       if (!names.has(name)) names.set(name, names.size + 1);
       return `{{${names.get(name)}}}`;
     });
-    const components: Array<Record<string, unknown>> = [];
+    const sample = (name: string): string => {
+      const value = input.sampleValues?.[name];
+      if (!value) throw new BadRequestException(`Sample value is required for ${name}`);
+      return value;
+    };
+    const components: MetaTemplateRequestComponent[] = [];
     if (input.header) {
       if (input.header.type === 'TEXT') {
         const text = convert(input.header.text);
-        components.push({ type: 'HEADER', format: 'TEXT', text, ...(names.size ? { example: { header_text: [...names.keys()].map((name) => input.sampleValues?.[name]) } } : {}) });
+        components.push({ type: 'HEADER', format: 'TEXT', text, ...(names.size ? { example: { header_text: [...names.keys()].map(sample) } } : {}) });
       } else components.push({ type: 'HEADER', format: input.header.type, example: { header_handle: [input.header.mediaHandle] } });
     }
     names.clear();
     const body = convert(input.body);
-    components.push({ type: 'BODY', text: body, ...(names.size ? { example: { body_text: [[...names.keys()].map((name) => input.sampleValues?.[name])] } } : {}) });
+    components.push({ type: 'BODY', text: body, ...(names.size ? { example: { body_text: [[...names.keys()].map(sample)] } } : {}) });
     if (input.footer) components.push({ type: 'FOOTER', text: input.footer });
-    if (input.buttons.length) components.push({ type: 'BUTTONS', buttons: input.buttons.map((button) => ({ type: button.type, text: button.text, ...(button.type === 'URL' ? { url: button.url } : {}), ...(button.type === 'PHONE_NUMBER' ? { phone_number: button.phoneNumber } : {}) })) });
+    if (input.buttons.length) {
+      const buttons: MetaTemplateRequestButton[] = input.buttons.map((button) => {
+        if (button.type === 'URL') return { type: button.type, text: button.text, url: button.url };
+        if (button.type === 'PHONE_NUMBER') return { type: button.type, text: button.text, phone_number: button.phoneNumber };
+        return { type: button.type, text: button.text };
+      });
+      components.push({ type: 'BUTTONS', buttons });
+    }
     return components;
   }
 
@@ -109,6 +121,9 @@ export class TemplatesService {
     const { wabaId, token } = await this.connection(hotelId);
     const components = this.components(input);
     const submitted = await this.meta.createTemplate(wabaId, token, { name: input.name, language: input.language, category: input.category, components });
+    if (!submitted || typeof submitted.id !== 'string' || !submitted.id.trim() || typeof submitted.status !== 'string' || !submitted.status.trim() || typeof submitted.category !== 'string' || !submitted.category.trim()) {
+      throw new BadGatewayException('Meta did not confirm template submission');
+    }
     return this.present({ id: submitted.id, name: input.name, language: input.language, category: submitted.category, status: submitted.status, components });
   }
 
@@ -118,6 +133,7 @@ export class TemplatesService {
     if (typeof fileName !== 'string' || !fileName || fileName.length > 128 || fileName.includes('/') || fileName.includes('\\') || Array.from(fileName).some((char) => char.charCodeAt(0) < 32)) throw new BadRequestException('Invalid media file name');
     const { token } = await this.connection(hotelId);
     const mediaHandle = await this.meta.uploadTemplateMedia(token, file, fileName, mimeType);
+    if (typeof mediaHandle !== 'string' || !mediaHandle.trim()) throw new BadGatewayException('Meta returned no template media handle');
     return { mediaHandle };
   }
 
@@ -125,7 +141,8 @@ export class TemplatesService {
     const { wabaId, token } = await this.connection(hotelId);
     const current = await this.ownedTemplate(wabaId, token, id);
     if (input.name !== current.name || input.language !== current.language) throw new BadRequestException('Template name and language cannot be edited');
-    await this.meta.editTemplate(id, token, { category: input.category, components: this.components(input) });
+    const response = await this.meta.editTemplate(id, token, { category: input.category, components: this.components(input) });
+    if (response?.success !== true || response.id !== id) throw new BadGatewayException('Meta did not confirm template update');
     return this.present(await this.meta.getTemplate(id, token));
   }
 
