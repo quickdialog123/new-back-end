@@ -196,21 +196,6 @@ describe('MetaGraphClient', () => {
     ).rejects.toBe(networkError);
   });
 
-  it('sends the catalog ID as a Graph form parameter', async () => {
-    post.mockResolvedValueOnce({ data: { success: true } });
-
-    await client.connectProductCatalog('waba-id', 'access-token', '123456789');
-
-    expect(post).toHaveBeenCalledWith('/v26.0/waba-id/product_catalogs', {
-      headers: {
-        authorization: 'Bearer access-token',
-        'content-type': 'application/x-www-form-urlencoded',
-      },
-      body: expect.any(URLSearchParams),
-    });
-    expect(post.mock.calls[0][1].body.toString()).toBe('catalog_id=123456789');
-  });
-
   it('encodes Meta asset IDs as single path segments', async () => {
     post.mockResolvedValue({ data: { success: true } });
 

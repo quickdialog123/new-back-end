@@ -12,7 +12,7 @@ export class TemplatesService {
 
   private async connection(hotelId: string) {
     const account = await this.prisma.whatsAppAccount.findFirst({
-      where: { hotelId, status: { in: ['CONNECTED', 'UNVERIFIED'] }, accessTokenEncrypted: { not: null } },
+      where: { hotelId, status: { in: ['CONNECTED'] }, accessTokenEncrypted: { not: null } },
       orderBy: { updatedAt: 'desc' },
       select: { wabaId: true, accessTokenEncrypted: true },
     });

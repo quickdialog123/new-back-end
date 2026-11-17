@@ -351,35 +351,15 @@ export class MetaGraphClient {
   }
 
   private templatePath(wabaId: string): string {
-    return `/${this.config.getOrThrow<string>('meta.graphVersion')}/${wabaId}/message_templates`;
+    return `/${this.version}/${wabaId}/message_templates`;
   }
 
   private templateIdPath(id: string): string {
-    return `/${this.config.getOrThrow<string>('meta.graphVersion')}/${id}`;
+    return `/${this.version}/${id}`;
   }
 
   private auth(accessToken: string) {
     return { headers: { authorization: `Bearer ${accessToken}` } };
-  }
-
-  async listProductCatalogs(wabaId: string, token: string) {
-    const path = `/${this.config.getOrThrow<string>('meta.graphVersion')}/${wabaId}/product_catalogs`;
-    const { data } = await this.http.get<{ data: Array<{ id: string; name?: string }> }>(path, {
-      ...this.auth(token), query: { fields: 'id,name' },
-    });
-    return data.data;
-  }
-
-  async connectProductCatalog(wabaId: string, token: string, catalogId: string) {
-    const path = `/${this.config.getOrThrow<string>('meta.graphVersion')}/${wabaId}/product_catalogs`;
-    await this.http.post(path, {
-      ...this.auth(token),
-      headers: {
-        authorization: `Bearer ${token}`,
-        'content-type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({ catalog_id: catalogId }),
-    });
   }
 
   async listTemplates(wabaId: string, token: string, after?: string) {
@@ -419,11 +399,9 @@ export class MetaGraphClient {
   }
 
   async uploadTemplateMedia(token: string, file: Buffer, fileName: string, mimeType: string): Promise<string> {
-    const version = this.config.getOrThrow<string>('meta.graphVersion');
-    const appId = this.config.getOrThrow<string>('meta.appId');
     let session: { id: string };
     try {
-      ({ data: session } = await this.http.post<{ id: string }>(`/${version}/${appId}/uploads`, {
+      ({ data: session } = await this.http.post<{ id: string }>(`/${this.version}/${this.appId}/uploads`, {
         ...this.auth(token),
         query: { file_length: file.length, file_type: mimeType, file_name: fileName },
       }));
@@ -431,7 +409,7 @@ export class MetaGraphClient {
       throw Object.assign(error as Error, { uploadStage: 'SESSION' });
     }
     try {
-      const { data } = await this.http.post<{ h: string }>(`/${version}/${session.id}`, {
+      const { data } = await this.http.post<{ h: string }>(`/${this.version}/${session.id}`, {
         headers: { authorization: `Bearer ${token}`, file_offset: '0', 'content-type': 'application/octet-stream' },
         body: Uint8Array.from(file).buffer,
       });
