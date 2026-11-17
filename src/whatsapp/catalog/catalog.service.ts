@@ -18,7 +18,7 @@ import type {
 import type { CreateProductDto, UpdateProductDto } from './product.schema.js';
 
 @Injectable()
-export class CatalogService {
+export class CatalogProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly meta: MetaGraphClient,

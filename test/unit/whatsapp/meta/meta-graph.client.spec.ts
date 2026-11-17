@@ -352,4 +352,48 @@ describe('MetaGraphClient', () => {
       { headers: { authorization: 'Bearer access-token' } },
     );
   });
+
+  it('normalizes permission errors when listing catalogs assigned to a system user', async () => {
+    get.mockRejectedValueOnce(
+      new HttpResponseError({
+        method: 'GET',
+        url: 'https://graph.facebook.com/v26.0/system-user-id/assigned_product_catalogs',
+        status: 403,
+        body: {
+          error: {
+            message: 'Permission denied',
+            type: 'OAuthException',
+            code: 200,
+            error_subcode: 33,
+            error_user_title: 'Catalog access required',
+            error_user_msg: 'Assign this system user to the catalog.',
+            fbtrace_id: 'A1b2C3d4',
+          },
+        },
+      }),
+    );
+
+    let thrown: unknown;
+    try {
+      await client.getAssignedCatalogs('system-user-id', 'access-token');
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(BadGatewayException);
+    expect((thrown as BadGatewayException).getResponse()).toMatchObject({
+      code: 'META_API_ERROR',
+      message: 'Meta rejected the catalog request',
+      details: {
+        status: 403,
+        metaCode: 200,
+        metaType: 'OAuthException',
+        metaMessage: 'Permission denied',
+        metaSubcode: 33,
+        metaUserTitle: 'Catalog access required',
+        metaUserMessage: 'Assign this system user to the catalog.',
+        metaTraceId: 'A1b2C3d4',
+      },
+    });
+  });
 });

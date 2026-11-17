@@ -1,6 +1,7 @@
 import {
   BadGatewayException,
   Injectable,
+  Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -230,16 +231,32 @@ export class MetaGraphClient {
       if (error instanceof BadGatewayException) throw error;
       if (error instanceof HttpResponseError) {
         const body = error.body as
-          | { error?: { message?: string; code?: number; type?: string } }
+          | {
+              error?: {
+                message?: string;
+                code?: number;
+                type?: string;
+                error_subcode?: number;
+                error_user_title?: string;
+                error_user_msg?: string;
+                fbtrace_id?: string;
+              };
+            }
           | undefined;
+        const metaError = body?.error;
+
         throw new BadGatewayException({
           code: 'META_API_ERROR',
           message: 'Meta rejected the catalog request',
           details: {
             status: error.status,
-            metaCode: body?.error?.code,
-            metaType: body?.error?.type,
-            metaMessage: body?.error?.message,
+            metaCode: metaError?.code,
+            metaSubcode: metaError?.error_subcode,
+            metaType: metaError?.type,
+            metaMessage: metaError?.message,
+            metaUserTitle: metaError?.error_user_title,
+            metaUserMessage: metaError?.error_user_msg,
+            metaTraceId: metaError?.fbtrace_id,
           },
         });
       }
@@ -256,17 +273,85 @@ export class MetaGraphClient {
       catalog_id: catalogId,
     });
 
-    const { data } = await this.http.post<MetaSuccessResponse>(
-      `/${this.version}/${wabaId}/product_catalogs?${params.toString()}`,
-      {
-        headers: {
-          authorization: `Bearer ${accessToken}`,
+    try {
+      const { data } = await this.http.post<MetaSuccessResponse>(
+        `/${this.version}/${wabaId}/product_catalogs?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         },
-      },
-    );
+      );
 
-    if (!data.success) {
-      throw new Error('Meta did not connect the catalog');
+      console.log('Meta catalog connection response', {
+        wabaId,
+        catalogId,
+        success: data.success,
+      });
+
+      if (!data.success) {
+        throw new BadGatewayException({
+          code: 'META_CATALOG_CONNECTION_FAILED',
+          message: 'Meta did not confirm the catalog connection',
+        });
+      }
+    } catch (error) {
+      if (error instanceof HttpResponseError) {
+        const body = error.body as
+          | {
+              error?: {
+                message?: string;
+                code?: number;
+                type?: string;
+                error_subcode?: number;
+                error_user_title?: string;
+                error_user_msg?: string;
+                fbtrace_id?: string;
+              };
+            }
+          | undefined;
+
+        const metaError = body?.error;
+
+        console.error('Meta catalog connection failed', {
+          wabaId,
+          catalogId,
+          httpStatus: error.status,
+          metaCode: metaError?.code,
+          metaSubcode: metaError?.error_subcode,
+          metaType: metaError?.type,
+          metaMessage: metaError?.message,
+          metaUserTitle: metaError?.error_user_title,
+          metaUserMessage: metaError?.error_user_msg,
+          metaTraceId: metaError?.fbtrace_id,
+        });
+
+        throw new BadGatewayException({
+          code: 'META_API_ERROR',
+          message: 'Meta rejected the catalog connection request',
+          details: {
+            status: error.status,
+            metaCode: metaError?.code,
+            metaSubcode: metaError?.error_subcode,
+            metaType: metaError?.type,
+            metaMessage: metaError?.message,
+            metaUserTitle: metaError?.error_user_title,
+            metaUserMessage: metaError?.error_user_msg,
+            metaTraceId: metaError?.fbtrace_id,
+          },
+        });
+      }
+
+      console.error(
+        'Unexpected error connecting catalog to WABA',
+        error instanceof Error ? error.stack : String(error),
+      );
+
+      if (error instanceof BadGatewayException) {
+        throw error;
+      }
+
+      throw new ServiceUnavailableException('Meta API is unavailable');
     }
   }
 
@@ -354,16 +439,19 @@ export class MetaGraphClient {
   ): Promise<MetaAssignedCatalogsResponse['data']> {
     const fields = ['id', 'name', 'vertical', 'product_count'].join(',');
 
-    const { data } = await this.http.get<MetaAssignedCatalogsResponse>(
-      `/${this.version}/${systemUserId}/assigned_product_catalogs?fields=${fields}`,
-      {
-        headers: {
-          authorization: `Bearer ${accessToken}`,
+    console.log('Fetching assigned catalogs for system user:', accessToken);
+    return this.withMetaErrors(async () => {
+      const { data } = await this.http.get<MetaAssignedCatalogsResponse>(
+        `/${this.version}/${systemUserId}/assigned_product_catalogs?fields=${fields}`,
+        {
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+          },
         },
-      },
-    );
+      );
 
-    return data.data;
+      return data.data;
+    });
   }
 
   async disconnectCatalogFromWaba(

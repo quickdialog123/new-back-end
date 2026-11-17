@@ -6,10 +6,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PrismaService } from '@quickdialog/database/prisma.service.js';
 import { MetaGraphClient } from '@quickdialog/whatsapp/meta/meta-graph.client.js';
 import { encryptMetaToken } from '@quickdialog/whatsapp/meta/meta-token.util.js';
-import { CatalogService } from '@quickdialog/whatsapp/catalog/catalog.service.js';
+import { CatalogProductsService } from '@quickdialog/whatsapp/catalog/catalog.service.js';
 
 describe('CatalogService', () => {
-  let service: CatalogService;
+  let service: CatalogProductsService;
   const findFirst = vi.fn();
   const config = { getOrThrow: vi.fn() };
   const meta = {
@@ -46,13 +46,13 @@ describe('CatalogService', () => {
 
     const moduleRef = await Test.createTestingModule({
       providers: [
-        CatalogService,
+        CatalogProductsService,
         { provide: PrismaService, useValue: prisma },
         { provide: MetaGraphClient, useValue: meta },
         { provide: ConfigService, useValue: config },
       ],
     }).compile();
-    service = moduleRef.get(CatalogService);
+    service = moduleRef.get(CatalogProductsService);
   });
 
   it('lists only catalogs available through the authenticated hotel account', async () => {

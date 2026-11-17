@@ -12,18 +12,18 @@ import {
   ApiDisconnectCatalogDocs,
   ApiUpdateCatalogSettingsDocs,
 } from '@quickdialog/swagger/decorators/whatsapp.decorator.js';
-import { CatalogService } from './catalog.service.js';
+import { CatalogConnectionService } from './connection.service.js';
 import {
   connectCatalogSchema,
   updateCatalogSettingsSchema,
   type ConnectCatalogDto,
   type UpdateCatalogSettingsDto,
-} from './schemas/catalog.schema.js';
+} from './schemas/connection.schema.js';
 
 @ApiTags(SWAGGER_TAGS.WHATSAPP.CATALOGS.ROOT)
 @Controller('whatsapp/catalogs')
-export class CatalogController {
-  constructor(private readonly catalogService: CatalogService) {}
+export class CatalogConnectionController {
+  constructor(private readonly catalogService: CatalogConnectionService) {}
 
   @Post('connect')
   @Roles(UserRole.OWNER)
@@ -54,6 +54,7 @@ export class CatalogController {
   @Roles(UserRole.OWNER)
   @ApiAvailableCatalogsDocs()
   getAvailableCatalogs(@CurrentUser() user: AuthenticatedUser) {
+    console.log('Getting available catalogs for hotelId:', user.hotelId);
     return this.catalogService.getAvailableCatalogs(user.hotelId!);
   }
 

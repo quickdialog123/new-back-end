@@ -13,8 +13,10 @@ import { HealthController } from '@quickdialog/health/health.controller.js';
 import { HealthService } from '@quickdialog/health/health.service.js';
 import { EmbeddedSignupController } from '@quickdialog/whatsapp/embedded-signup/embedded-signup.controller.js';
 import { EmbeddedSignupService } from '@quickdialog/whatsapp/embedded-signup/embedded-signup.service.js';
-import { CatalogController } from '@quickdialog/whatsapp/catalogs/catalog.controller.js';
-import { CatalogService } from '@quickdialog/whatsapp/catalogs/catalog.service.js';
+import { CatalogConnectionController } from '@quickdialog/whatsapp/catalog/connection.controller.js';
+import { CatalogConnectionService } from '@quickdialog/whatsapp/catalog/connection.service.js';
+import { CatalogProductsController } from '@quickdialog/whatsapp/catalog/catalog.controller.js';
+import { CatalogProductsService } from '@quickdialog/whatsapp/catalog/catalog.service.js';
 import { MetaGraphClient } from '@quickdialog/whatsapp/meta/meta-graph.client.js';
 import { WhatsappController } from '@quickdialog/whatsapp/whatsapp.controller.js';
 import { WhatsappService } from '@quickdialog/whatsapp/whatsapp.service.js';
@@ -36,14 +38,16 @@ describe('Swagger API contract', () => {
         HealthController,
         WhatsappController,
         EmbeddedSignupController,
-        CatalogController,
+        CatalogConnectionController,
+        CatalogProductsController,
       ],
       providers: [
         { provide: AuthService, useValue: {} },
         { provide: HealthService, useValue: {} },
         { provide: WhatsappService, useValue: {} },
         { provide: EmbeddedSignupService, useValue: {} },
-        { provide: CatalogService, useValue: {} },
+        { provide: CatalogConnectionService, useValue: {} },
+        { provide: CatalogProductsService, useValue: {} },
         { provide: MetaGraphClient, useValue: {} },
         { provide: ConfigService, useValue: config },
       ],

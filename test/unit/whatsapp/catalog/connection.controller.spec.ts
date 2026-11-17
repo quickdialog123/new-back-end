@@ -2,11 +2,11 @@ import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ROLES_KEY } from '@quickdialog/common/decorators/roles.decorator.js';
-import { CatalogController } from '@quickdialog/whatsapp/catalogs/catalog.controller.js';
-import { CatalogService } from '@quickdialog/whatsapp/catalogs/catalog.service.js';
+import { CatalogConnectionController } from '@quickdialog/whatsapp/catalog/connection.controller.js';
+import { CatalogConnectionService } from '@quickdialog/whatsapp/catalog/connection.service.js';
 
-describe('CatalogController', () => {
-  let controller: CatalogController;
+describe('CatalogConnectionController', () => {
+  let controller: CatalogConnectionController;
   const catalogService = {
     connectCatalog: vi.fn(),
     disconnectCatalog: vi.fn(),
@@ -24,10 +24,10 @@ describe('CatalogController', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     const moduleRef = await Test.createTestingModule({
-      controllers: [CatalogController],
-      providers: [{ provide: CatalogService, useValue: catalogService }],
+      controllers: [CatalogConnectionController],
+      providers: [{ provide: CatalogConnectionService, useValue: catalogService }],
     }).compile();
-    controller = moduleRef.get(CatalogController);
+    controller = moduleRef.get(CatalogConnectionController);
   });
 
   it('delegates catalog operations using the authenticated hotel', async () => {
@@ -80,7 +80,7 @@ describe('CatalogController', () => {
       'updateSettings',
     ] as const) {
       const handler = Object.getOwnPropertyDescriptor(
-        CatalogController.prototype,
+        CatalogConnectionController.prototype,
         method,
       )?.value;
 

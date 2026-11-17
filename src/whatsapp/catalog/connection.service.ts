@@ -7,10 +7,10 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@quickdialog/database/prisma.service.js';
 import { MetaGraphClient } from '../meta/meta-graph.client.js';
 import { decryptMetaToken } from '../meta/meta-token.util.js';
-import type { UpdateCatalogSettingsDto } from './schemas/catalog.schema.js';
+import type { UpdateCatalogSettingsDto } from './schemas/connection.schema.js';
 
 @Injectable()
-export class CatalogService {
+export class CatalogConnectionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly meta: MetaGraphClient,
@@ -18,6 +18,7 @@ export class CatalogService {
   ) {}
 
   async connectCatalog(hotelId: string, catalogId: string) {
+    console.log('Connecting catalog', catalogId, 'for hotelId:', hotelId);
     const { account, token } = await this.getConnectedAccount(hotelId);
 
     await this.meta.connectCatalogToWaba(account.wabaId, catalogId, token);

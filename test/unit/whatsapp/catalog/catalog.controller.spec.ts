@@ -3,11 +3,11 @@ import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ROLES_KEY } from '@quickdialog/common/decorators/roles.decorator.js';
-import { CatalogController } from '@quickdialog/whatsapp/catalog/catalog.controller.js';
-import { CatalogService } from '@quickdialog/whatsapp/catalog/catalog.service.js';
+import { CatalogProductsController } from '@quickdialog/whatsapp/catalog/catalog.controller.js';
+import { CatalogProductsService } from '@quickdialog/whatsapp/catalog/catalog.service.js';
 
 describe('CatalogController', () => {
-  let controller: CatalogController;
+  let controller: CatalogProductsController;
   const catalogService = {
     listCatalogs: vi.fn(),
     listProducts: vi.fn(),
@@ -26,10 +26,10 @@ describe('CatalogController', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     const moduleRef = await Test.createTestingModule({
-      controllers: [CatalogController],
-      providers: [{ provide: CatalogService, useValue: catalogService }],
+      controllers: [CatalogProductsController],
+      providers: [{ provide: CatalogProductsService, useValue: catalogService }],
     }).compile();
-    controller = moduleRef.get(CatalogController);
+    controller = moduleRef.get(CatalogProductsController);
   });
 
   it('derives the hotel context from the authenticated owner for catalog listing', async () => {
@@ -45,7 +45,7 @@ describe('CatalogController', () => {
   });
 
   it('restricts catalog endpoints to hotel owners', () => {
-    expect(Reflect.getMetadata(ROLES_KEY, CatalogController)).toEqual([
+    expect(Reflect.getMetadata(ROLES_KEY, CatalogProductsController)).toEqual([
       'OWNER',
     ]);
   });
