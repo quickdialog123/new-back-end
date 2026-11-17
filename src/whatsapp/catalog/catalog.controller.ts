@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -12,7 +11,6 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { z } from 'zod';
 
 import type { AuthenticatedUser } from '@quickdialog/auth/types/authenticated-user.type.js';
 import { CurrentUser } from '@quickdialog/common/decorators/current-user.decorator.js';
@@ -42,8 +40,13 @@ import {
   catalogIdParamSchema,
   createProductSchema,
   productIdParamSchema,
+  productListQuerySchema,
   updateProductSchema,
+  type BatchHandleParamDto,
+  type CatalogIdParamDto,
   type CreateProductDto,
+  type ProductIdParamDto,
+  type ProductListQueryDto,
   type UpdateProductDto,
 } from './schemas/product.schema.js';
 import {
@@ -52,10 +55,6 @@ import {
   type ConnectCatalogDto,
   type UpdateCatalogSettingsDto,
 } from './schemas/catalog.schema.js';
-
-const productListQuerySchema = z.object({
-  after: z.string().optional(),
-});
 
 @ApiTags(SWAGGER_TAGS.WHATSAPP.CATALOGS.ROOT)
 @Roles(UserRole.OWNER)
@@ -69,28 +68,25 @@ export class CatalogController {
     @CurrentUser() user: AuthenticatedUser,
     @Body({ schema: connectCatalogSchema }) input: ConnectCatalogDto,
   ) {
-    return this.catalogService.connectCatalog(
-      this.hotelId(user),
-      input.catalogId,
-    );
+    return this.catalogService.connectCatalog(user.hotelId!, input.catalogId);
   }
 
   @Post('disconnect')
   @ApiDisconnectCatalogDocs()
   disconnectCatalog(@CurrentUser() user: AuthenticatedUser) {
-    return this.catalogService.disconnectCatalog(this.hotelId(user));
+    return this.catalogService.disconnectCatalog(user.hotelId!);
   }
 
   @Get('connection')
   @ApiCatalogConnectionDocs()
   getConnection(@CurrentUser() user: AuthenticatedUser) {
-    return this.catalogService.getConnection(this.hotelId(user));
+    return this.catalogService.getConnection(user.hotelId!);
   }
 
   @Get('available')
   @ApiAvailableCatalogsDocs()
   getAvailableCatalogs(@CurrentUser() user: AuthenticatedUser) {
-    return this.catalogService.getAvailableCatalogs(this.hotelId(user));
+    return this.catalogService.getAvailableCatalogs(user.hotelId!);
   }
 
   @Patch('settings')
@@ -100,13 +96,13 @@ export class CatalogController {
     @Body({ schema: updateCatalogSettingsSchema })
     input: UpdateCatalogSettingsDto,
   ) {
-    return this.catalogService.updateSettings(this.hotelId(user), input);
+    return this.catalogService.updateSettings(user.hotelId!, input);
   }
 
   @Get()
   @ApiListCatalogsDocs()
   listCatalogs(@CurrentUser() user: AuthenticatedUser) {
-    return this.catalogService.listCatalogs(this.hotelId(user));
+    return this.catalogService.listCatalogs(user.hotelId!);
   }
 
   @Get(':catalogId/products')
@@ -114,12 +110,12 @@ export class CatalogController {
   listProducts(
     @CurrentUser() user: AuthenticatedUser,
     @Param({ schema: catalogIdParamSchema })
-    params: z.infer<typeof catalogIdParamSchema>,
+    params: CatalogIdParamDto,
     @Query({ schema: productListQuerySchema })
-    query: z.infer<typeof productListQuerySchema>,
+    query: ProductListQueryDto,
   ) {
     return this.catalogService.listProducts(
-      this.hotelId(user),
+      user.hotelId!,
       params.catalogId,
       query.after,
     );
@@ -131,12 +127,12 @@ export class CatalogController {
   createProduct(
     @CurrentUser() user: AuthenticatedUser,
     @Param({ schema: catalogIdParamSchema })
-    params: z.infer<typeof catalogIdParamSchema>,
+    params: CatalogIdParamDto,
     @Body({ schema: createProductSchema })
     input: CreateProductDto,
   ) {
     return this.catalogService.createProduct(
-      this.hotelId(user),
+      user.hotelId!,
       params.catalogId,
       input,
     );
@@ -148,12 +144,12 @@ export class CatalogController {
   updateProduct(
     @CurrentUser() user: AuthenticatedUser,
     @Param({ schema: productIdParamSchema })
-    params: z.infer<typeof productIdParamSchema>,
+    params: ProductIdParamDto,
     @Body({ schema: updateProductSchema })
     input: UpdateProductDto,
   ) {
     return this.catalogService.updateProduct(
-      this.hotelId(user),
+      user.hotelId!,
       params.catalogId,
       params.productId,
       input,
@@ -166,10 +162,10 @@ export class CatalogController {
   deleteProduct(
     @CurrentUser() user: AuthenticatedUser,
     @Param({ schema: productIdParamSchema })
-    params: z.infer<typeof productIdParamSchema>,
+    params: ProductIdParamDto,
   ) {
     return this.catalogService.deleteProduct(
-      this.hotelId(user),
+      user.hotelId!,
       params.catalogId,
       params.productId,
     );
@@ -180,20 +176,12 @@ export class CatalogController {
   getOperationStatus(
     @CurrentUser() user: AuthenticatedUser,
     @Param({ schema: batchHandleParamSchema })
-    params: z.infer<typeof batchHandleParamSchema>,
+    params: BatchHandleParamDto,
   ) {
     return this.catalogService.getBatchStatus(
-      this.hotelId(user),
+      user.hotelId!,
       params.catalogId,
       params.handle,
     );
-  }
-
-  private hotelId(user: AuthenticatedUser): string {
-    if (!user.hotelId) {
-      throw new BadRequestException('Authenticated user has no hotel');
-    }
-
-    return user.hotelId;
   }
 }
