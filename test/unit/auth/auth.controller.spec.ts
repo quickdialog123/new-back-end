@@ -110,8 +110,8 @@ describe('AuthController', () => {
       'refresh-token',
       {
         httpOnly: true,
-        secure: false,
-        sameSite: 'lax',
+        secure: true,
+        sameSite: 'none',
         path: '/api/auth',
         maxAge: 604800,
       },
@@ -261,7 +261,8 @@ describe('AuthController', () => {
 
       expect.objectContaining({
         httpOnly: true,
-        sameSite: 'lax',
+        secure: true,
+        sameSite: 'none',
         path: '/api/auth',
       }),
     );

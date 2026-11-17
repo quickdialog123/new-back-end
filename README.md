@@ -71,6 +71,12 @@ The project is intentionally kept as a modular monolith. Business features live 
 │   │   │   ├── webhook.controller.ts
 │   │   │   ├── webhook.service.ts
 │   │   │   └── webhook.types.ts
+│   │   ├── catalog/
+│   │   │   ├── catalog.controller.ts
+│   │   │   ├── catalog.service.ts
+│   │   │   └── schemas/
+│   │   │       ├── catalog.schema.ts
+│   │   │       └── product.schema.ts
 │   │   ├── whatsapp.controller.ts
 │   │   ├── whatsapp.module.ts
 │   │   └── whatsapp.service.ts
@@ -176,6 +182,29 @@ The frontend should prompt for a PIN whenever status is `unverified`. Submit it 
 - `GET /api/whatsapp/status` to read the current state.
 
 The API does not persist the PIN. Meta credentials and tokens remain server-side; the token is stored encrypted and is never included in status responses.
+
+### Meta product catalogs
+
+The catalog connection endpoints manage which Meta catalog is connected to the hotel's WhatsApp Business Account (WABA). Product endpoints manage items in catalogs accessible to the hotel's connected Meta business. These are separate concepts and routes: `GET /api/whatsapp/catalogs/connection` reports the active WABA catalog and visibility/cart settings, while `GET /api/whatsapp/catalogs` lists catalogs accessible to the business. QuickDialog reads and writes this data through Meta and does not persist a local product copy. Catalog IDs are checked against the authenticated hotel's Meta account before operations.
+
+Catalog connection and WhatsApp commerce settings (authenticated hotel owner):
+
+- `GET /api/whatsapp/catalogs/connection` returns `{ status, catalog, catalogVisible, cartEnabled }`. `status` is `not_connected`, `connected`, or `hidden`; `catalog` is `null` when none is connected, otherwise it contains `id`, `name`, `vertical`, and `productCount`.
+- `GET /api/whatsapp/catalogs/available` lists catalogs available to connect, as objects with `id`, `name`, `vertical`, and `productCount`.
+- `POST /api/whatsapp/catalogs/connect` connects a selected catalog; send `{ "catalogId": "<catalog-id>" }`. The response is the refreshed connection state.
+- `POST /api/whatsapp/catalogs/disconnect` disconnects the active catalog. The response is the refreshed connection state.
+- `PATCH /api/whatsapp/catalogs/settings` updates one or both settings; send `{ "catalogVisible": true, "cartEnabled": false }` (either property may be omitted, but not both). The response is the refreshed connection state.
+
+Use the connection endpoint to choose the page state: `not_connected` should show the catalog-connect flow; `connected` and `hidden` mean a catalog is linked and its `catalog.id` can be used for product management. `hidden` means the catalog is linked but not currently visible in WhatsApp. The product-list endpoint remains useful for browsing any accessible catalog and does not itself connect it to the WABA.
+
+- `GET /api/whatsapp/catalogs` lists catalogs accessible to the hotel's Meta business.
+- `GET /api/whatsapp/catalogs/:catalogId/products` lists products; use the returned paging cursor as `?after=...` for the next page.
+- `POST /api/whatsapp/catalogs/:catalogId/products` submits a product create operation.
+- `PATCH /api/whatsapp/catalogs/:catalogId/products/:productId` submits a product update.
+- `DELETE /api/whatsapp/catalogs/:catalogId/products/:productId` submits a product deletion.
+- `GET /api/whatsapp/catalogs/:catalogId/operations/:handle` checks the Meta batch status. When finished, the response includes refreshed product data.
+
+Product creation accepts name, description, product URL, image URL, price, ISO currency code, availability, brand, and condition. The backend generates the Meta retailer product ID and returns it for later update/delete requests. Price and currency are combined into Meta's expected format (for example, `12.50 USD`). Meta batch writes can complete asynchronously; write endpoints return status and a handle, and clients should poll the operation endpoint while status is still processing.
 
 ## Validation
 

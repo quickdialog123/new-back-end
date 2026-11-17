@@ -33,15 +33,64 @@ export type MetaSendMessageResponse = {
 
 export type MetaRegisterPhoneNumberResponse = { success: boolean };
 
-export type MetaProductCatalog = {
+export type MetaCatalog = {
   id: string;
   name: string;
   vertical?: string;
   product_count?: number;
 };
 
-export type MetaProductCatalogsResponse = {
-  data: MetaProductCatalog[];
+export type MetaProduct = {
+  id: string;
+  retailer_id?: string;
+  name?: string;
+  description?: string;
+  url?: string;
+  image_url?: string;
+  availability?: string;
+  price?: string;
+  currency?: string;
+  brand?: string;
+  condition?: string;
+};
+
+export type MetaProductBatchRequest = {
+  method: 'CREATE' | 'UPDATE' | 'DELETE';
+  data: Record<string, unknown>;
+};
+
+export type MetaProductBatchResponse = {
+  handles?: string[];
+  validation_status?: Array<{
+    retailer_id: string;
+    errors?: Array<{ message: string }>;
+    warnings?: Array<{ message: string }>;
+  }>;
+};
+
+export type MetaCatalogBatchStatus = {
+  handle: string;
+  status: string;
+  errors_total_count?: number;
+  errors?: Array<{ message: string }>;
+  warnings?: Array<{ message: string }>;
+  ids_of_invalid_requests?: string[];
+};
+
+export type MetaProductsResponse = {
+  data: MetaProduct[];
+  paging?: {
+    cursors?: { before?: string; after?: string };
+    next?: string;
+  };
+};
+
+export type MetaCatalogsResponse = {
+  data: MetaCatalog[];
+  paging?: {
+    cursors?: { before?: string; after?: string };
+    next?: string;
+  };
 };
 
 export type MetaSuccessResponse = {
@@ -58,6 +107,6 @@ export type MetaCommerceSettingsResponse = {
   data: MetaCommerceSetting[];
 };
 
-export type MetaAssignedProductCatalogsResponse = {
-  data: MetaProductCatalog[];
+export type MetaAssignedCatalogsResponse = {
+  data: MetaCatalog[];
 };

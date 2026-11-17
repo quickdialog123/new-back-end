@@ -8,14 +8,14 @@ import { WhatsappService } from './whatsapp.service.js';
 import { WebhookController } from './webhooks/webhook.controller.js';
 import { WebhookService } from './webhooks/webhook.service.js';
 import { WebhookSignatureGuard } from './webhooks/webhook-signature.guard.js';
-import { CatalogController } from './catalogs/catalog.controller.js';
-import { CatalogService } from './catalogs/catalog.service.js';
+import { CatalogController } from './catalog/catalog.controller.js';
+import { CatalogService } from './catalog/catalog.service.js';
 
 @Module({
   imports: [
     HttpClientModule.register({
       baseUrl: 'https://graph.facebook.com',
-      timeout: '20s',
+      timeout: '21s',
     }),
   ],
   controllers: [
