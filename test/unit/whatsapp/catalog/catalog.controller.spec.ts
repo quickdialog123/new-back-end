@@ -31,7 +31,9 @@ describe('CatalogController', () => {
     vi.clearAllMocks();
     const moduleRef = await Test.createTestingModule({
       controllers: [CatalogProductsController],
-      providers: [{ provide: CatalogProductsService, useValue: catalogService }],
+      providers: [
+        { provide: CatalogProductsService, useValue: catalogService },
+      ],
     }).compile();
     controller = moduleRef.get(CatalogProductsController);
   });
