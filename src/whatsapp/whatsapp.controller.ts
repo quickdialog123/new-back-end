@@ -34,6 +34,19 @@ export class WhatsappController {
     return this.whatsappService.getStatus(this.hotelId(user));
   }
 
+  @Get('catalog')
+  @Roles(UserRole.OWNER)
+  getCatalog(@CurrentUser() user: AuthenticatedUser) {
+    return this.whatsappService.getConnectedCatalog(this.hotelId(user));
+  }
+
+  @Post('catalog')
+  @Roles(UserRole.OWNER)
+  connectCatalog(@CurrentUser() user: AuthenticatedUser, @Body() input: { catalogId: string }) {
+    if (!/^\d+$/.test(input?.catalogId ?? '')) throw new BadRequestException('Catalog ID must be numeric');
+    return this.whatsappService.connectCatalog(this.hotelId(user), input.catalogId);
+  }
+
   @Post('disconnect')
   @Roles(UserRole.OWNER)
   @ApiDisconnectWhatsAppDocs()

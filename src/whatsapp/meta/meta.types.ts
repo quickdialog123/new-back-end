@@ -110,3 +110,24 @@ export type MetaCommerceSettingsResponse = {
 export type MetaAssignedCatalogsResponse = {
   data: MetaCatalog[];
 };
+
+export type MetaTemplate = {
+  id: string;
+  name: string;
+  language: string;
+  category: string;
+  status: string;
+  components: Array<Record<string, unknown>>;
+  rejected_reason?: string;
+};
+
+export type MetaTemplateList = {
+  data: MetaTemplate[];
+  paging?: { cursors?: { after?: string }; next?: string };
+};
+
+export type MetaTemplateSubmission = {
+  id: string;
+  status: string;
+  category: string;
+};

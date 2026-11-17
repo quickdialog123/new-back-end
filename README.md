@@ -206,6 +206,14 @@ Use the connection endpoint to choose the page state: `not_connected` should sho
 
 Product creation accepts name, description, product URL, image URL, price, ISO currency code, availability, brand, and condition. The backend generates the Meta retailer product ID and returns it for later update/delete requests. Price and currency are combined into Meta's expected format (for example, `12.50 USD`). Meta batch writes can complete asynchronously; write endpoints return status and a handle, and clients should poll the operation endpoint while status is still processing.
 
+## WhatsApp templates
+
+`/api/whatsapp/templates` provides hotel-scoped list, detail, submit, edit, and delete operations against the connected hotel's Meta WABA. List returns `{ data, paging: { after } }`; detail, submit, and edit return template fields `id`, `name`, `category`, `language`, `header`, `body`, `footer`, `buttons`, and Meta's current `status`. `broadcastEligible` is true only when that status is `APPROVED`. Meta remains the source of truth; broadcast sending must recheck the current Meta status before sending.
+
+Submit and edit accept the wizard fields plus `sampleValues` for each named `{{variable}}`. The backend converts names to Meta's positional placeholders and supplies examples. Meta does not retain the original variable names, so subsequent list/detail results contain `{{1}}`, `{{2}}`, etc.; broadcast integration must map guest values to those positions. For image/video headers, first `POST /api/whatsapp/templates/media` with raw file bytes (`Content-Type: image/jpeg`, `image/png`, or `video/mp4`; `X-File-Name` header; maximum 15 MB). The response is `{ "mediaHandle": "..." }`; include that handle in `header.mediaHandle` when submitting the template. The file or data URL must not be included in template JSON. The current generic wizard cannot submit `AUTHENTICATION` templates because it lacks Meta's authentication-specific settings and OTP button fields. Catalog templates require a Meta catalog ID and product retailer ID that the frontend does not provide.
+
+There is no backend draft store. `POST /whatsapp/templates` submits to Meta for review and returns Meta's status; it never returns `DRAFT`. The wizard's Save draft action remains frontend-only until a separate draft persistence contract exists. Meta does not provide an `updatedAt` value in the fields currently requested, so the response does not fabricate one. The frontend's edit UI is not implemented yet.
+
 ## Validation
 
 Request validation uses Zod through Nest's built-in `StandardSchemaValidationPipe`.

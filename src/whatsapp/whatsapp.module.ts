@@ -10,6 +10,10 @@ import { WebhookService } from './webhooks/webhook.service.js';
 import { WebhookSignatureGuard } from './webhooks/webhook-signature.guard.js';
 import { CatalogController } from './catalog/catalog.controller.js';
 import { CatalogService } from './catalog/catalog.service.js';
+import { CatalogController } from './catalogs/catalog.controller.js';
+import { CatalogService } from './catalogs/catalog.service.js';
+import { TemplatesController } from './templates/templates.controller.js';
+import { TemplatesService } from './templates/templates.service.js';
 
 @Module({
   imports: [
@@ -23,6 +27,7 @@ import { CatalogService } from './catalog/catalog.service.js';
     EmbeddedSignupController,
     WebhookController,
     CatalogController,
+    TemplatesController,
   ],
   providers: [
     MetaGraphClient,
@@ -31,6 +36,7 @@ import { CatalogService } from './catalog/catalog.service.js';
     WebhookService,
     WebhookSignatureGuard,
     CatalogService,
+    TemplatesService,
   ],
   exports: [MetaGraphClient],
 })

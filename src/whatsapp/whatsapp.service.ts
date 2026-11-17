@@ -56,6 +56,32 @@ export class WhatsappService {
     };
   }
 
+  private async catalogConnection(hotelId: string) {
+    const account = await this.prisma.whatsAppAccount.findFirst({
+      where: { hotelId, status: { in: ['CONNECTED', 'UNVERIFIED'] }, accessTokenEncrypted: { not: null } },
+      orderBy: { updatedAt: 'desc' },
+      select: { wabaId: true, accessTokenEncrypted: true },
+    });
+    if (!account?.accessTokenEncrypted) throw new BadRequestException('Connect WhatsApp before linking a catalog');
+    return { wabaId: account.wabaId, token: this.accessToken(account.accessTokenEncrypted) };
+  }
+
+  async getConnectedCatalog(hotelId: string) {
+    const { wabaId, token } = await this.catalogConnection(hotelId);
+    const catalogs = await this.meta.listProductCatalogs(wabaId, token);
+    const linked = catalogs[0];
+    return { wabaId, catalog: linked ? { id: linked.id, name: linked.name ?? null } : null };
+  }
+
+  async connectCatalog(hotelId: string, catalogId: string) {
+    const { wabaId, token } = await this.catalogConnection(hotelId);
+    const catalogs = await this.meta.listProductCatalogs(wabaId, token);
+    const linked = catalogs.find((catalog) => catalog.id === catalogId);
+    if (linked) return { wabaId, catalog: { id: linked.id, name: linked.name ?? null } };
+    await this.meta.connectProductCatalog(wabaId, token, catalogId);
+    return { wabaId, catalog: { id: catalogId, name: null } };
+  }
+
   async registerPhoneNumber(
     hotelId: string,
     pin: string,

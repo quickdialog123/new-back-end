@@ -196,6 +196,21 @@ describe('MetaGraphClient', () => {
     ).rejects.toBe(networkError);
   });
 
+  it('sends the catalog ID as a Graph form parameter', async () => {
+    post.mockResolvedValueOnce({ data: { success: true } });
+
+    await client.connectProductCatalog('waba-id', 'access-token', '123456789');
+
+    expect(post).toHaveBeenCalledWith('/v26.0/waba-id/product_catalogs', {
+      headers: {
+        authorization: 'Bearer access-token',
+        'content-type': 'application/x-www-form-urlencoded',
+      },
+      body: expect.any(URLSearchParams),
+    });
+    expect(post.mock.calls[0][1].body.toString()).toBe('catalog_id=123456789');
+  });
+
   it('encodes Meta asset IDs as single path segments', async () => {
     post.mockResolvedValue({ data: { success: true } });
 
@@ -382,5 +397,18 @@ describe('MetaGraphClient', () => {
     await expect(
       client.connectCatalogToWaba('waba-id', 'catalog-id', 'access-token'),
     ).rejects.toBe(error);
+  });
+
+  it('uploads template media as bytes and returns the Meta handle', async () => {
+    post.mockResolvedValueOnce({ data: { id: 'upload:session?sig=signature' } }).mockResolvedValueOnce({ data: { h: 'media-handle' } });
+    await expect(client.uploadTemplateMedia('access-token', Buffer.from('image'), 'header.png', 'image/png')).resolves.toBe('media-handle');
+    expect(post).toHaveBeenNthCalledWith(1, '/v26.0/meta-app-id/uploads', {
+      headers: { authorization: 'Bearer access-token' },
+      query: { file_length: 5, file_type: 'image/png', file_name: 'header.png' },
+    });
+    expect(post).toHaveBeenNthCalledWith(2, '/v26.0/upload:session?sig=signature', expect.objectContaining({
+      headers: { authorization: 'Bearer access-token', file_offset: '0', 'content-type': 'application/octet-stream' },
+      body: expect.any(ArrayBuffer),
+    }));
   });
 });
