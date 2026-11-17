@@ -36,7 +36,6 @@ describe('Swagger API contract', () => {
         HealthController,
         WhatsappController,
         EmbeddedSignupController,
-        CatalogConnectionController,
         CatalogProductsController,
       ],
       providers: [
@@ -44,7 +43,6 @@ describe('Swagger API contract', () => {
         { provide: HealthService, useValue: {} },
         { provide: WhatsappService, useValue: {} },
         { provide: EmbeddedSignupService, useValue: {} },
-        { provide: CatalogConnectionService, useValue: {} },
         { provide: CatalogProductsService, useValue: {} },
         { provide: MetaGraphClient, useValue: {} },
         { provide: ConfigService, useValue: config },
