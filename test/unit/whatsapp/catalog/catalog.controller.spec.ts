@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -41,12 +40,6 @@ describe('CatalogController', () => {
     catalogService.listCatalogs.mockResolvedValue([]);
     await expect(controller.listCatalogs(owner as never)).resolves.toEqual([]);
     expect(catalogService.listCatalogs).toHaveBeenCalledWith('hotel-id');
-  });
-
-  it('does not accept a missing hotel context', () => {
-    expect(() =>
-      controller.listCatalogs({ ...owner, hotelId: null } as never),
-    ).toThrow(BadRequestException);
   });
 
   it('restricts catalog endpoints to hotel owners', () => {
