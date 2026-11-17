@@ -35,6 +35,9 @@ export const updateProductSchema = z
   );
 
 export const catalogIdParamSchema = z.object({ catalogId: z.string().min(1) });
+export const productListQuerySchema = z.object({
+  after: z.string().optional(),
+});
 export const productIdParamSchema = z.object({
   catalogId: z.string().min(1),
   productId: z.string().min(1).max(100),
@@ -46,3 +49,7 @@ export const batchHandleParamSchema = z.object({
 
 export type CreateProductDto = z.infer<typeof createProductSchema>;
 export type UpdateProductDto = z.infer<typeof updateProductSchema>;
+export type CatalogIdParamDto = z.infer<typeof catalogIdParamSchema>;
+export type ProductListQueryDto = z.infer<typeof productListQuerySchema>;
+export type ProductIdParamDto = z.infer<typeof productIdParamSchema>;
+export type BatchHandleParamDto = z.infer<typeof batchHandleParamSchema>;

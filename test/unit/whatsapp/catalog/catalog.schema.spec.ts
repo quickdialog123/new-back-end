@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  productListQuerySchema,
   createProductSchema,
   updateProductSchema,
 } from '@quickdialog/whatsapp/catalog/schemas/product.schema.js';
@@ -18,6 +19,16 @@ const validProduct = {
 };
 
 describe('product schemas', () => {
+  it('allows an optional string cursor for product listing', () => {
+    expect(productListQuerySchema.safeParse({}).success).toBe(true);
+    expect(productListQuerySchema.safeParse({ after: 'cursor' }).success).toBe(
+      true,
+    );
+    expect(productListQuerySchema.safeParse({ after: 123 }).success).toBe(
+      false,
+    );
+  });
+
   it('validates a create request and requires Meta product fields', () => {
     expect(createProductSchema.safeParse(validProduct).success).toBe(true);
     expect(
