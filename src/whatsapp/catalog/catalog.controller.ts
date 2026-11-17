@@ -29,6 +29,13 @@ import {
   ApiListProductsDocs,
   ApiUpdateProductDocs,
 } from '@quickdialog/swagger/decorators/catalog.decorator.js';
+import {
+  ApiAvailableCatalogsDocs,
+  ApiCatalogConnectionDocs,
+  ApiConnectCatalogDocs,
+  ApiDisconnectCatalogDocs,
+  ApiUpdateCatalogSettingsDocs,
+} from '@quickdialog/swagger/decorators/whatsapp.decorator.js';
 
 import { CatalogProductsService } from './catalog.service.js';
 
@@ -40,7 +47,13 @@ import {
   updateProductSchema,
   type CreateProductDto,
   type UpdateProductDto,
-} from './product.schema.js';
+} from './schemas/product.schema.js';
+import {
+  connectCatalogSchema,
+  updateCatalogSettingsSchema,
+  type ConnectCatalogDto,
+  type UpdateCatalogSettingsDto,
+} from './schemas/connection.schema.js';
 
 const productListQuerySchema = z.object({
   after: z.string().optional(),
@@ -51,6 +64,46 @@ const productListQuerySchema = z.object({
 @Controller('whatsapp/catalogs')
 export class CatalogProductsController {
   constructor(private readonly catalogService: CatalogProductsService) {}
+
+  @Post('connect')
+  @ApiConnectCatalogDocs()
+  connectCatalog(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body({ schema: connectCatalogSchema }) input: ConnectCatalogDto,
+  ) {
+    return this.catalogService.connectCatalog(
+      this.hotelId(user),
+      input.catalogId,
+    );
+  }
+
+  @Post('disconnect')
+  @ApiDisconnectCatalogDocs()
+  disconnectCatalog(@CurrentUser() user: AuthenticatedUser) {
+    return this.catalogService.disconnectCatalog(this.hotelId(user));
+  }
+
+  @Get('connection')
+  @ApiCatalogConnectionDocs()
+  getConnection(@CurrentUser() user: AuthenticatedUser) {
+    return this.catalogService.getConnection(this.hotelId(user));
+  }
+
+  @Get('available')
+  @ApiAvailableCatalogsDocs()
+  getAvailableCatalogs(@CurrentUser() user: AuthenticatedUser) {
+    return this.catalogService.getAvailableCatalogs(this.hotelId(user));
+  }
+
+  @Patch('settings')
+  @ApiUpdateCatalogSettingsDocs()
+  updateSettings(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body({ schema: updateCatalogSettingsSchema })
+    input: UpdateCatalogSettingsDto,
+  ) {
+    return this.catalogService.updateSettings(this.hotelId(user), input);
+  }
 
   @Get()
   @ApiListCatalogsDocs()

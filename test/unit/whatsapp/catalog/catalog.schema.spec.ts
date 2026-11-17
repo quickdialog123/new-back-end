@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createProductSchema,
   updateProductSchema,
-} from '@quickdialog/whatsapp/catalog/product.schema.js';
+} from '@quickdialog/whatsapp/catalog/schemas/product.schema.js';
 
 const validProduct = {
   name: 'Coffee',

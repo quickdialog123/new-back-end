@@ -17,6 +17,13 @@ describe('CatalogService', () => {
     getCatalogProducts: vi.fn(),
     submitCatalogProductBatch: vi.fn(),
     getCatalogBatchStatus: vi.fn(),
+    connectCatalogToWaba: vi.fn(),
+    disconnectCatalogFromWaba: vi.fn(),
+    getWabaCatalogs: vi.fn(),
+    getCommerceSettings: vi.fn(),
+    getSystemUserId: vi.fn(),
+    getAssignedCatalogs: vi.fn(),
+    updateCommerceSettings: vi.fn(),
   };
   const encryptionKey = Buffer.alloc(32, 1).toString('base64');
   const prisma = { whatsAppAccount: { findFirst } };
@@ -65,6 +72,77 @@ describe('CatalogService', () => {
     });
     expect(meta.getProductCatalogs).toHaveBeenCalledWith(
       'business-id',
+      'hotel-meta-token',
+    );
+  });
+
+  it('manages WhatsApp catalog connections and settings', async () => {
+    findFirst.mockResolvedValue({
+      ...account,
+      wabaId: 'waba-id',
+      phoneNumberId: 'phone-id',
+      status: 'CONNECTED',
+    });
+    meta.getWabaCatalogs.mockResolvedValue([
+      {
+        id: 'catalog-a',
+        name: 'Hotel catalog',
+        vertical: 'commerce',
+        product_count: 4,
+      },
+    ]);
+    meta.getCommerceSettings.mockResolvedValue({
+      is_catalog_visible: true,
+      is_cart_enabled: false,
+    });
+    meta.getSystemUserId.mockResolvedValue('system-user-id');
+    meta.getAssignedCatalogs.mockResolvedValue([
+      { id: 'catalog-b', name: 'Available catalog' },
+    ]);
+
+    await expect(
+      service.connectCatalog('hotel-id', 'catalog-a'),
+    ).resolves.toMatchObject({
+      status: 'connected',
+      catalog: { id: 'catalog-a', productCount: 4 },
+    });
+    expect(meta.connectCatalogToWaba).toHaveBeenCalledWith(
+      'waba-id',
+      'catalog-a',
+      'hotel-meta-token',
+    );
+
+    await expect(service.getAvailableCatalogs('hotel-id')).resolves.toEqual([
+      {
+        id: 'catalog-b',
+        name: 'Available catalog',
+        vertical: null,
+        productCount: 0,
+      },
+    ]);
+    expect(meta.getAssignedCatalogs).toHaveBeenCalledWith(
+      'system-user-id',
+      'hotel-meta-token',
+    );
+
+    await expect(
+      service.updateSettings('hotel-id', {
+        catalogVisible: false,
+        cartEnabled: true,
+      }),
+    ).resolves.toMatchObject({ status: 'connected' });
+    expect(meta.updateCommerceSettings).toHaveBeenCalledWith(
+      'phone-id',
+      'hotel-meta-token',
+      { catalogVisible: false, cartEnabled: true },
+    );
+
+    await expect(service.disconnectCatalog('hotel-id')).resolves.toMatchObject({
+      status: 'connected',
+    });
+    expect(meta.disconnectCatalogFromWaba).toHaveBeenCalledWith(
+      'waba-id',
+      'catalog-a',
       'hotel-meta-token',
     );
   });
