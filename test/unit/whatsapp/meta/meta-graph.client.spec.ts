@@ -396,4 +396,69 @@ describe('MetaGraphClient', () => {
       body: expect.any(ArrayBuffer),
     }));
   });
+  it('paginates business catalogs and deduplicates shared catalog IDs', async () => {
+    get
+      .mockResolvedValueOnce({ data: { data: [{ id: 'shared', name: 'Owned name' }], paging: { cursors: { after: 'next' } } } })
+      .mockResolvedValueOnce({ data: { data: [{ id: 'owned', name: 'Second page' }] } })
+      .mockResolvedValueOnce({ data: { data: [{ id: 'shared', name: 'Client name' }] } });
+
+    await expect(client.getProductCatalogs('business-id', 'access-token')).resolves.toEqual([
+      { id: 'shared', name: 'Client name' },
+      { id: 'owned', name: 'Second page' },
+    ]);
+    expect(get).toHaveBeenCalledTimes(3);
+    expect(get.mock.calls[1][0]).toContain('owned_product_catalogs?');
+    expect(get.mock.calls[1][0]).toContain('&after=next');
+    expect(get.mock.calls[2][0]).toContain('client_product_catalogs?');
+  });
+
+  it('lists catalog products without a cursor', async () => {
+    get.mockResolvedValueOnce({ data: { data: [] } });
+
+    await expect(client.getCatalogProducts('catalog-id', 'access-token')).resolves.toEqual({ data: [] });
+    expect(get.mock.calls[0][0]).not.toContain('&after=');
+  });
+
+  it('rejects an empty catalog batch status response', async () => {
+    get.mockResolvedValueOnce({ data: { data: [] } });
+
+    await expect(client.getCatalogBatchStatus('catalog-id', 'access-token', 'handle')).rejects.toThrow(
+      'Meta returned no catalog batch status',
+    );
+  });
+
+  it('rejects a catalog connection that Meta does not confirm', async () => {
+    post.mockResolvedValueOnce({ data: { success: false } });
+
+    await expect(client.connectCatalogToWaba('waba-id', 'catalog-id', 'access-token')).rejects.toMatchObject({
+      response: { code: 'META_CATALOG_CONNECTION_FAILED', message: 'Meta did not confirm the catalog connection' },
+    });
+  });
+
+  it('updates the cart setting without changing catalog visibility', async () => {
+    post.mockResolvedValueOnce({ data: { success: true } });
+
+    await expect(client.updateCommerceSettings('phone-id', 'access-token', { cartEnabled: true })).resolves.toBeUndefined();
+    expect(post).toHaveBeenCalledWith(
+      '/v26.0/phone-id/whatsapp_commerce_settings?is_cart_enabled=true',
+      { headers: { authorization: 'Bearer access-token' } },
+    );
+  });
+
+  it('rejects commerce settings updates that Meta does not confirm', async () => {
+    post.mockResolvedValueOnce({ data: { success: false } });
+
+    await expect(client.updateCommerceSettings('phone-id', 'access-token', { cartEnabled: false })).rejects.toThrow(
+      'Meta did not update commerce settings',
+    );
+  });
+
+  it('rejects catalog disconnections that Meta does not confirm', async () => {
+    remove.mockResolvedValueOnce({ data: { success: false } });
+
+    await expect(client.disconnectCatalogFromWaba('waba-id', 'catalog-id', 'access-token')).rejects.toThrow(
+      'Meta did not disconnect the catalog',
+    );
+  });
+
 });
