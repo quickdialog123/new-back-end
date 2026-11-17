@@ -97,10 +97,8 @@ export class MetaGraphClient {
     accessToken: string,
     pin: string,
   ): Promise<MetaRegisterPhoneNumberResponse> {
-    const version = this.config.getOrThrow<string>('meta.graphVersion');
-
     const { data } = await this.http.post<MetaRegisterPhoneNumberResponse>(
-      `/${version}/${encodeURIComponent(phoneNumberId)}/register`,
+      `/${this.version}/${encodeURIComponent(phoneNumberId)}/register`,
       {
         headers: { authorization: `Bearer ${accessToken}` },
         json: {
@@ -117,7 +115,6 @@ export class MetaGraphClient {
     businessId: string,
     accessToken: string,
   ): Promise<MetaCatalog[]> {
-    const version = this.config.getOrThrow<string>('meta.graphVersion');
     const catalogs = new Map<string, MetaCatalog>();
 
     for (const edge of ['owned_product_catalogs', 'client_product_catalogs']) {
@@ -129,7 +126,7 @@ export class MetaGraphClient {
         });
         if (after) params.set('after', after);
         const { data } = await this.http.get<MetaCatalogsResponse>(
-          `/${version}/${encodeURIComponent(businessId)}/${edge}?${params}`,
+          `/${this.version}/${encodeURIComponent(businessId)}/${edge}?${params}`,
           {
             headers: { authorization: `Bearer ${accessToken}` },
           },
@@ -149,7 +146,6 @@ export class MetaGraphClient {
     accessToken: string,
     after?: string,
   ): Promise<MetaProductsResponse> {
-    const version = this.config.getOrThrow<string>('meta.graphVersion');
     const params = new URLSearchParams({
       fields:
         'id,retailer_id,name,description,url,image_url,availability,price,currency,brand,condition',
@@ -157,7 +153,7 @@ export class MetaGraphClient {
     });
     if (after) params.set('after', after);
     const { data } = await this.http.get<MetaProductsResponse>(
-      `/${version}/${encodeURIComponent(catalogId)}/products?${params}`,
+      `/${this.version}/${encodeURIComponent(catalogId)}/products?${params}`,
       { headers: { authorization: `Bearer ${accessToken}` } },
     );
     return data;
@@ -168,9 +164,8 @@ export class MetaGraphClient {
     accessToken: string,
     requests: MetaProductBatchRequest[],
   ): Promise<MetaProductBatchResponse> {
-    const version = this.config.getOrThrow<string>('meta.graphVersion');
     const { data } = await this.http.post<MetaProductBatchResponse>(
-      `/${version}/${encodeURIComponent(catalogId)}/items_batch`,
+      `/${this.version}/${encodeURIComponent(catalogId)}/items_batch`,
       {
         headers: { authorization: `Bearer ${accessToken}` },
         json: {
@@ -188,7 +183,6 @@ export class MetaGraphClient {
     accessToken: string,
     handle: string,
   ): Promise<MetaCatalogBatchStatus> {
-    const version = this.config.getOrThrow<string>('meta.graphVersion');
     const params = new URLSearchParams({
       handle,
       load_ids_of_invalid_requests: 'true',
@@ -198,7 +192,7 @@ export class MetaGraphClient {
     const { data } = await this.http.get<{
       data: MetaCatalogBatchStatus[];
     }>(
-      `/${version}/${encodeURIComponent(catalogId)}/check_batch_request_status?${params}`,
+      `/${this.version}/${encodeURIComponent(catalogId)}/check_batch_request_status?${params}`,
       { headers: { authorization: `Bearer ${accessToken}` } },
     );
     const status = data.data?.[0];
@@ -221,7 +215,7 @@ export class MetaGraphClient {
       `/${this.version}/${wabaId}/product_catalogs?${params.toString()}`,
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          authorization: `Bearer ${accessToken}`,
         },
       },
     );

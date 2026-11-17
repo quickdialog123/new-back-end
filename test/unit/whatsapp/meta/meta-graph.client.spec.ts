@@ -98,6 +98,7 @@ describe('MetaGraphClient', () => {
         pin: '654321',
       },
     });
+    expect(config.getOrThrow).toHaveBeenCalledTimes(3);
   });
 
   it('discovers owned and client catalogs for a business', async () => {
