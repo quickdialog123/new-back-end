@@ -1,6 +1,6 @@
 import { BadGatewayException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HttpClient, HttpResponseError } from '@nestjs/http-client';
+import { HttpClient } from '@nestjs/http-client';
 import type {
   MetaAccessTokenResponse,
   MetaAssignedCatalogsResponse,
@@ -219,15 +219,14 @@ export class MetaGraphClient {
       catalog_id: catalogId,
     });
 
-    try {
-      const { data } = await this.http.post<MetaSuccessResponse>(
-        `/${this.version}/${wabaId}/product_catalogs?${params.toString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+    const { data } = await this.http.post<MetaSuccessResponse>(
+      `/${this.version}/${wabaId}/product_catalogs?${params.toString()}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
         },
-      );
+      },
+    );
 
     if (!data.success) {
       throw new BadGatewayException({
@@ -322,18 +321,16 @@ export class MetaGraphClient {
   ): Promise<MetaAssignedCatalogsResponse['data']> {
     const fields = ['id', 'name', 'vertical', 'product_count'].join(',');
 
-    return this.withMetaErrors(async () => {
-      const { data } = await this.http.get<MetaAssignedCatalogsResponse>(
-        `/${this.version}/${systemUserId}/assigned_product_catalogs?fields=${fields}`,
-        {
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
+    const { data } = await this.http.get<MetaAssignedCatalogsResponse>(
+      `/${this.version}/${systemUserId}/assigned_product_catalogs?fields=${fields}`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
         },
-      );
+      },
+    );
 
-      return data.data;
-    });
+    return data.data;
   }
 
   async disconnectCatalogFromWaba(

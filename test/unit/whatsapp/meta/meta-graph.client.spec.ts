@@ -1,8 +1,4 @@
 import { ConfigService } from '@nestjs/config';
-import {
-  BadGatewayException,
-  ServiceUnavailableException,
-} from '@nestjs/common';
 import { HttpClient, HttpResponseError } from '@nestjs/http-client';
 import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -287,12 +283,13 @@ describe('MetaGraphClient', () => {
     );
     await expect(
       client.getCatalogProducts('catalog-id', 'access-token'),
-    ).rejects.toBeInstanceOf(BadGatewayException);
+    ).rejects.toBe(metaError);
 
-    get.mockRejectedValueOnce(new Error('network detail'));
+    const networkError = new Error('network detail');
+    get.mockRejectedValueOnce(networkError);
     await expect(
       client.getCatalogProducts('catalog-id', 'access-token'),
-    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    ).rejects.toBe(networkError);
   });
 
   it('encodes Meta asset IDs as single path segments', async () => {

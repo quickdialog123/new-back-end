@@ -22,7 +22,7 @@ import type {
 } from './schemas/product.schema.js';
 
 @Injectable()
-export class CatalogProductsService {
+export class CatalogService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly meta: MetaGraphClient,
