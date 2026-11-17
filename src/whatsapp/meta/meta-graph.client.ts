@@ -283,12 +283,6 @@ export class MetaGraphClient {
         },
       );
 
-      console.log('Meta catalog connection response', {
-        wabaId,
-        catalogId,
-        success: data.success,
-      });
-
       if (!data.success) {
         throw new BadGatewayException({
           code: 'META_CATALOG_CONNECTION_FAILED',
@@ -439,7 +433,6 @@ export class MetaGraphClient {
   ): Promise<MetaAssignedCatalogsResponse['data']> {
     const fields = ['id', 'name', 'vertical', 'product_count'].join(',');
 
-    console.log('Fetching assigned catalogs for system user:', accessToken);
     return this.withMetaErrors(async () => {
       const { data } = await this.http.get<MetaAssignedCatalogsResponse>(
         `/${this.version}/${systemUserId}/assigned_product_catalogs?fields=${fields}`,

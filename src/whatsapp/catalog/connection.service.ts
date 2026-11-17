@@ -18,7 +18,6 @@ export class CatalogConnectionService {
   ) {}
 
   async connectCatalog(hotelId: string, catalogId: string) {
-    console.log('Connecting catalog', catalogId, 'for hotelId:', hotelId);
     const { account, token } = await this.getConnectedAccount(hotelId);
 
     await this.meta.connectCatalogToWaba(account.wabaId, catalogId, token);

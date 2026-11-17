@@ -54,7 +54,6 @@ export class CatalogConnectionController {
   @Roles(UserRole.OWNER)
   @ApiAvailableCatalogsDocs()
   getAvailableCatalogs(@CurrentUser() user: AuthenticatedUser) {
-    console.log('Getting available catalogs for hotelId:', user.hotelId);
     return this.catalogService.getAvailableCatalogs(user.hotelId!);
   }
 
