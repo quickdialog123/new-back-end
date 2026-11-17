@@ -281,7 +281,7 @@ describe('MetaGraphClient', () => {
 
     expect(post).toHaveBeenCalledWith(
       '/v26.0/waba-id/product_catalogs?catalog_id=catalog+id',
-      { headers: { authorization: 'Bearer access-token' } },
+      { headers: { Authorization: 'Bearer access-token' } },
     );
     expect(get).toHaveBeenCalledWith(
       '/v26.0/waba-id/product_catalogs?fields=id,name,vertical,product_count',
