@@ -23,7 +23,7 @@ describe('TemplatesService', () => {
       name: 'welcome', category: 'UTILITY', language: 'en_GB', header: null,
       body: 'Hi {{firstname}}', footer: null, buttons: [], sampleValues: { firstname: 'Amelia' },
     });
-    expect(prisma.whatsAppAccount.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { hotelId: 'hotel-1', status: { in: ['CONNECTED', 'UNVERIFIED'] }, accessTokenEncrypted: { not: null } } }));
+    expect(prisma.whatsAppAccount.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { hotelId: 'hotel-1', status: 'CONNECTED', accessTokenEncrypted: { not: null } } }));
     expect(meta.createTemplate).toHaveBeenCalledWith('waba-1', 'secret-token', {
       name: 'welcome', category: 'UTILITY', language: 'en_GB',
       components: [{ type: 'BODY', text: 'Hi {{1}}', example: { body_text: [['Amelia']] } }],
@@ -60,11 +60,12 @@ describe('TemplatesService', () => {
     await expect(service.list('hotel-1')).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('can list templates after signup while phone registration is pending', async () => {
-    meta.listTemplates.mockResolvedValueOnce({ data: [], paging: {} });
-    await expect(service.list('hotel-1')).resolves.toEqual({ data: [], paging: { after: null } });
+  it('requires phone registration before listing templates', async () => {
+    prisma.whatsAppAccount.findFirst.mockImplementationOnce((query: { where: { status: string } }) =>
+      Promise.resolve(query.where.status === 'CONNECTED' ? null : { ...account, status: 'UNVERIFIED' }));
+    await expect(service.list('hotel-1')).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.whatsAppAccount.findFirst).toHaveBeenLastCalledWith(expect.objectContaining({
-      where: { hotelId: 'hotel-1', status: { in: ['CONNECTED', 'UNVERIFIED'] }, accessTokenEncrypted: { not: null } },
+      where: { hotelId: 'hotel-1', status: 'CONNECTED', accessTokenEncrypted: { not: null } },
     }));
   });
 

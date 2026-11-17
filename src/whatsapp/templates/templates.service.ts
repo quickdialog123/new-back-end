@@ -12,11 +12,11 @@ export class TemplatesService {
 
   private async connection(hotelId: string) {
     const account = await this.prisma.whatsAppAccount.findFirst({
-      where: { hotelId, status: { in: ['CONNECTED'] }, accessTokenEncrypted: { not: null } },
+      where: { hotelId, status: 'CONNECTED', accessTokenEncrypted: { not: null } },
       orderBy: { updatedAt: 'desc' },
       select: { wabaId: true, accessTokenEncrypted: true },
     });
-    if (!account?.accessTokenEncrypted) throw new BadRequestException('WhatsApp signup or connection is required');
+    if (!account?.accessTokenEncrypted) throw new BadRequestException('Connected WhatsApp account is required');
     return {
       wabaId: account.wabaId,
       token: decryptMetaToken(account.accessTokenEncrypted, this.config.getOrThrow<string>('meta.tokenEncryptionKey')),
