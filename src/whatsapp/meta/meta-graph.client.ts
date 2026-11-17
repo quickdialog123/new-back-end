@@ -1,11 +1,6 @@
-import {
-  BadGatewayException,
-  Injectable,
-  Logger,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { BadGatewayException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HttpClient, HttpResponseError } from '@nestjs/http-client';
+import { HttpClient } from '@nestjs/http-client';
 import type {
   MetaAccessTokenResponse,
   MetaAssignedCatalogsResponse,
@@ -125,31 +120,26 @@ export class MetaGraphClient {
     const version = this.config.getOrThrow<string>('meta.graphVersion');
     const catalogs = new Map<string, MetaCatalog>();
 
-    await this.withMetaErrors(async () => {
-      for (const edge of [
-        'owned_product_catalogs',
-        'client_product_catalogs',
-      ]) {
-        let after: string | undefined;
-        do {
-          const params = new URLSearchParams({
-            fields: 'id,name,product_count',
-            limit: '100',
-          });
-          if (after) params.set('after', after);
-          const { data } = await this.http.get<MetaCatalogsResponse>(
-            `/${version}/${encodeURIComponent(businessId)}/${edge}?${params}`,
-            {
-              headers: { authorization: `Bearer ${accessToken}` },
-            },
-          );
-          for (const catalog of data.data ?? []) {
-            catalogs.set(catalog.id, catalog);
-          }
-          after = data.paging?.cursors?.after;
-        } while (after);
-      }
-    });
+    for (const edge of ['owned_product_catalogs', 'client_product_catalogs']) {
+      let after: string | undefined;
+      do {
+        const params = new URLSearchParams({
+          fields: 'id,name,product_count',
+          limit: '100',
+        });
+        if (after) params.set('after', after);
+        const { data } = await this.http.get<MetaCatalogsResponse>(
+          `/${version}/${encodeURIComponent(businessId)}/${edge}?${params}`,
+          {
+            headers: { authorization: `Bearer ${accessToken}` },
+          },
+        );
+        for (const catalog of data.data ?? []) {
+          catalogs.set(catalog.id, catalog);
+        }
+        after = data.paging?.cursors?.after;
+      } while (after);
+    }
 
     return [...catalogs.values()];
   }
@@ -166,13 +156,11 @@ export class MetaGraphClient {
       limit: '100',
     });
     if (after) params.set('after', after);
-    return this.withMetaErrors(async () => {
-      const { data } = await this.http.get<MetaProductsResponse>(
-        `/${version}/${encodeURIComponent(catalogId)}/products?${params}`,
-        { headers: { authorization: `Bearer ${accessToken}` } },
-      );
-      return data;
-    });
+    const { data } = await this.http.get<MetaProductsResponse>(
+      `/${version}/${encodeURIComponent(catalogId)}/products?${params}`,
+      { headers: { authorization: `Bearer ${accessToken}` } },
+    );
+    return data;
   }
 
   async submitCatalogProductBatch(
@@ -181,20 +169,18 @@ export class MetaGraphClient {
     requests: MetaProductBatchRequest[],
   ): Promise<MetaProductBatchResponse> {
     const version = this.config.getOrThrow<string>('meta.graphVersion');
-    return this.withMetaErrors(async () => {
-      const { data } = await this.http.post<MetaProductBatchResponse>(
-        `/${version}/${encodeURIComponent(catalogId)}/items_batch`,
-        {
-          headers: { authorization: `Bearer ${accessToken}` },
-          json: {
-            item_type: 'PRODUCT_ITEM',
-            allow_upsert: false,
-            requests,
-          },
+    const { data } = await this.http.post<MetaProductBatchResponse>(
+      `/${version}/${encodeURIComponent(catalogId)}/items_batch`,
+      {
+        headers: { authorization: `Bearer ${accessToken}` },
+        json: {
+          item_type: 'PRODUCT_ITEM',
+          allow_upsert: false,
+          requests,
         },
-      );
-      return data;
-    });
+      },
+    );
+    return data;
   }
 
   async getCatalogBatchStatus(
@@ -209,59 +195,17 @@ export class MetaGraphClient {
       fields:
         'handle,status,warnings,errors_total_count,ids_of_invalid_requests',
     });
-    return this.withMetaErrors(async () => {
-      const { data } = await this.http.get<{
-        data: MetaCatalogBatchStatus[];
-      }>(
-        `/${version}/${encodeURIComponent(catalogId)}/check_batch_request_status?${params}`,
-        { headers: { authorization: `Bearer ${accessToken}` } },
-      );
-      const status = data.data?.[0];
-      if (!status) {
-        throw new BadGatewayException('Meta returned no catalog batch status');
-      }
-      return status;
-    });
-  }
-
-  private async withMetaErrors<T>(operation: () => Promise<T>): Promise<T> {
-    try {
-      return await operation();
-    } catch (error) {
-      if (error instanceof BadGatewayException) throw error;
-      if (error instanceof HttpResponseError) {
-        const body = error.body as
-          | {
-              error?: {
-                message?: string;
-                code?: number;
-                type?: string;
-                error_subcode?: number;
-                error_user_title?: string;
-                error_user_msg?: string;
-                fbtrace_id?: string;
-              };
-            }
-          | undefined;
-        const metaError = body?.error;
-
-        throw new BadGatewayException({
-          code: 'META_API_ERROR',
-          message: 'Meta rejected the catalog request',
-          details: {
-            status: error.status,
-            metaCode: metaError?.code,
-            metaSubcode: metaError?.error_subcode,
-            metaType: metaError?.type,
-            metaMessage: metaError?.message,
-            metaUserTitle: metaError?.error_user_title,
-            metaUserMessage: metaError?.error_user_msg,
-            metaTraceId: metaError?.fbtrace_id,
-          },
-        });
-      }
-      throw new ServiceUnavailableException('Meta API is unavailable');
+    const { data } = await this.http.get<{
+      data: MetaCatalogBatchStatus[];
+    }>(
+      `/${version}/${encodeURIComponent(catalogId)}/check_batch_request_status?${params}`,
+      { headers: { authorization: `Bearer ${accessToken}` } },
+    );
+    const status = data.data?.[0];
+    if (!status) {
+      throw new BadGatewayException('Meta returned no catalog batch status');
     }
+    return status;
   }
 
   async connectCatalogToWaba(
@@ -273,61 +217,20 @@ export class MetaGraphClient {
       catalog_id: catalogId,
     });
 
-    try {
-      const { data } = await this.http.post<MetaSuccessResponse>(
-        `/${this.version}/${wabaId}/product_catalogs?${params.toString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+    const { data } = await this.http.post<MetaSuccessResponse>(
+      `/${this.version}/${wabaId}/product_catalogs?${params.toString()}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
         },
-      );
+      },
+    );
 
-      if (!data.success) {
-        throw new BadGatewayException({
-          code: 'META_CATALOG_CONNECTION_FAILED',
-          message: 'Meta did not confirm the catalog connection',
-        });
-      }
-    } catch (error) {
-      if (error instanceof HttpResponseError) {
-        const body = error.body as
-          | {
-              error?: {
-                message?: string;
-                code?: number;
-                type?: string;
-                error_subcode?: number;
-                error_user_title?: string;
-                error_user_msg?: string;
-                fbtrace_id?: string;
-              };
-            }
-          | undefined;
-
-        const metaError = body?.error;
-
-        throw new BadGatewayException({
-          code: 'META_API_ERROR',
-          message: 'Meta rejected the catalog connection request',
-          details: {
-            status: error.status,
-            metaCode: metaError?.code,
-            metaSubcode: metaError?.error_subcode,
-            metaType: metaError?.type,
-            metaMessage: metaError?.message,
-            metaUserTitle: metaError?.error_user_title,
-            metaUserMessage: metaError?.error_user_msg,
-            metaTraceId: metaError?.fbtrace_id,
-          },
-        });
-      }
-
-      if (error instanceof BadGatewayException) {
-        throw error;
-      }
-
-      throw new ServiceUnavailableException('Meta API is unavailable');
+    if (!data.success) {
+      throw new BadGatewayException({
+        code: 'META_CATALOG_CONNECTION_FAILED',
+        message: 'Meta did not confirm the catalog connection',
+      });
     }
   }
 
@@ -415,18 +318,16 @@ export class MetaGraphClient {
   ): Promise<MetaAssignedCatalogsResponse['data']> {
     const fields = ['id', 'name', 'vertical', 'product_count'].join(',');
 
-    return this.withMetaErrors(async () => {
-      const { data } = await this.http.get<MetaAssignedCatalogsResponse>(
-        `/${this.version}/${systemUserId}/assigned_product_catalogs?fields=${fields}`,
-        {
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
+    const { data } = await this.http.get<MetaAssignedCatalogsResponse>(
+      `/${this.version}/${systemUserId}/assigned_product_catalogs?fields=${fields}`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
         },
-      );
+      },
+    );
 
-      return data.data;
-    });
+    return data.data;
   }
 
   async disconnectCatalogFromWaba(

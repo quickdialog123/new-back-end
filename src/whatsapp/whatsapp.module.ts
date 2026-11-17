@@ -8,8 +8,8 @@ import { WhatsappService } from './whatsapp.service.js';
 import { WebhookController } from './webhooks/webhook.controller.js';
 import { WebhookService } from './webhooks/webhook.service.js';
 import { WebhookSignatureGuard } from './webhooks/webhook-signature.guard.js';
-import { CatalogProductsController } from './catalog/catalog.controller.js';
-import { CatalogProductsService } from './catalog/catalog.service.js';
+import { CatalogController } from './catalog/catalog.controller.js';
+import { CatalogService } from './catalog/catalog.service.js';
 
 @Module({
   imports: [
@@ -22,7 +22,7 @@ import { CatalogProductsService } from './catalog/catalog.service.js';
     WhatsappController,
     EmbeddedSignupController,
     WebhookController,
-    CatalogProductsController,
+    CatalogController,
   ],
   providers: [
     MetaGraphClient,
@@ -30,7 +30,7 @@ import { CatalogProductsService } from './catalog/catalog.service.js';
     EmbeddedSignupService,
     WebhookService,
     WebhookSignatureGuard,
-    CatalogProductsService,
+    CatalogService,
   ],
   exports: [MetaGraphClient],
 })

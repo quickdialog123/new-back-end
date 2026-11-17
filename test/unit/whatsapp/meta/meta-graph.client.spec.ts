@@ -1,8 +1,4 @@
 import { ConfigService } from '@nestjs/config';
-import {
-  BadGatewayException,
-  ServiceUnavailableException,
-} from '@nestjs/common';
 import { HttpClient, HttpResponseError } from '@nestjs/http-client';
 import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -174,29 +170,29 @@ describe('MetaGraphClient', () => {
     );
   });
 
-  it('normalizes Meta and network errors for catalog operations', async () => {
-    get.mockRejectedValueOnce(
-      new HttpResponseError({
-        method: 'GET',
-        url: 'https://graph.facebook.com/v26.0/catalog-id/products',
-        status: 400,
-        body: {
-          error: {
-            message: 'Catalog permission denied',
-            type: 'OAuthException',
-            code: 200,
-          },
+  it('propagates Meta and network errors from catalog operations unchanged', async () => {
+    const metaError = new HttpResponseError({
+      method: 'GET',
+      url: 'https://graph.facebook.com/v26.0/catalog-id/products',
+      status: 400,
+      body: {
+        error: {
+          message: 'Catalog permission denied',
+          type: 'OAuthException',
+          code: 200,
         },
-      }),
-    );
+      },
+    });
+    get.mockRejectedValueOnce(metaError);
     await expect(
       client.getCatalogProducts('catalog-id', 'access-token'),
-    ).rejects.toBeInstanceOf(BadGatewayException);
+    ).rejects.toBe(metaError);
 
-    get.mockRejectedValueOnce(new Error('network detail'));
+    const networkError = new Error('network detail');
+    get.mockRejectedValueOnce(networkError);
     await expect(
       client.getCatalogProducts('catalog-id', 'access-token'),
-    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    ).rejects.toBe(networkError);
   });
 
   it('encodes Meta asset IDs as single path segments', async () => {
@@ -353,47 +349,37 @@ describe('MetaGraphClient', () => {
     );
   });
 
-  it('normalizes permission errors when listing catalogs assigned to a system user', async () => {
-    get.mockRejectedValueOnce(
-      new HttpResponseError({
-        method: 'GET',
-        url: 'https://graph.facebook.com/v26.0/system-user-id/assigned_product_catalogs',
-        status: 403,
-        body: {
-          error: {
-            message: 'Permission denied',
-            type: 'OAuthException',
-            code: 200,
-            error_subcode: 33,
-            error_user_title: 'Catalog access required',
-            error_user_msg: 'Assign this system user to the catalog.',
-            fbtrace_id: 'A1b2C3d4',
-          },
+  it('propagates assigned catalog permission errors unchanged', async () => {
+    const error = new HttpResponseError({
+      method: 'GET',
+      url: 'https://graph.facebook.com/v26.0/system-user-id/assigned_product_catalogs',
+      status: 403,
+      body: {
+        error: {
+          message: 'Permission denied',
+          type: 'OAuthException',
+          code: 200,
         },
-      }),
-    );
-
-    let thrown: unknown;
-    try {
-      await client.getAssignedCatalogs('system-user-id', 'access-token');
-    } catch (error) {
-      thrown = error;
-    }
-
-    expect(thrown).toBeInstanceOf(BadGatewayException);
-    expect((thrown as BadGatewayException).getResponse()).toMatchObject({
-      code: 'META_API_ERROR',
-      message: 'Meta rejected the catalog request',
-      details: {
-        status: 403,
-        metaCode: 200,
-        metaType: 'OAuthException',
-        metaMessage: 'Permission denied',
-        metaSubcode: 33,
-        metaUserTitle: 'Catalog access required',
-        metaUserMessage: 'Assign this system user to the catalog.',
-        metaTraceId: 'A1b2C3d4',
       },
     });
+    get.mockRejectedValueOnce(error);
+
+    await expect(
+      client.getAssignedCatalogs('system-user-id', 'access-token'),
+    ).rejects.toBe(error);
+  });
+
+  it('propagates Meta connection response errors unchanged', async () => {
+    const error = new HttpResponseError({
+      method: 'POST',
+      url: 'https://graph.facebook.com/v26.0/waba-id/product_catalogs',
+      status: 400,
+      body: { error: { message: 'Permission denied' } },
+    });
+    post.mockRejectedValueOnce(error);
+
+    await expect(
+      client.connectCatalogToWaba('waba-id', 'catalog-id', 'access-token'),
+    ).rejects.toBe(error);
   });
 });

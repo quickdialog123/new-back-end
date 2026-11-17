@@ -15,14 +15,14 @@ import type {
   MetaCatalog,
   MetaProductBatchRequest,
 } from '../meta/meta.types.js';
-import type { UpdateCatalogSettingsDto } from './schemas/connection.schema.js';
+import type { UpdateCatalogSettingsDto } from './schemas/catalog.schema.js';
 import type {
   CreateProductDto,
   UpdateProductDto,
 } from './schemas/product.schema.js';
 
 @Injectable()
-export class CatalogProductsService {
+export class CatalogService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly meta: MetaGraphClient,

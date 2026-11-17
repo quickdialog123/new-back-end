@@ -22,22 +22,20 @@ import { UserRole } from '@quickdialog/generated/prisma/client.js';
 import { SWAGGER_TAGS } from '@quickdialog/swagger/swagger.tags.js';
 
 import {
-  ApiCatalogOperationStatusDocs,
-  ApiCreateProductDocs,
-  ApiDeleteProductDocs,
-  ApiListCatalogsDocs,
-  ApiListProductsDocs,
-  ApiUpdateProductDocs,
-} from '@quickdialog/swagger/decorators/catalog.decorator.js';
-import {
   ApiAvailableCatalogsDocs,
   ApiCatalogConnectionDocs,
+  ApiCatalogOperationStatusDocs,
   ApiConnectCatalogDocs,
+  ApiCreateProductDocs,
+  ApiDeleteProductDocs,
   ApiDisconnectCatalogDocs,
+  ApiListCatalogsDocs,
+  ApiListProductsDocs,
   ApiUpdateCatalogSettingsDocs,
+  ApiUpdateProductDocs,
 } from '@quickdialog/swagger/decorators/whatsapp.decorator.js';
 
-import { CatalogProductsService } from './catalog.service.js';
+import { CatalogService } from './catalog.service.js';
 
 import {
   batchHandleParamSchema,
@@ -53,7 +51,7 @@ import {
   updateCatalogSettingsSchema,
   type ConnectCatalogDto,
   type UpdateCatalogSettingsDto,
-} from './schemas/connection.schema.js';
+} from './schemas/catalog.schema.js';
 
 const productListQuerySchema = z.object({
   after: z.string().optional(),
@@ -62,8 +60,8 @@ const productListQuerySchema = z.object({
 @ApiTags(SWAGGER_TAGS.WHATSAPP.CATALOGS.ROOT)
 @Roles(UserRole.OWNER)
 @Controller('whatsapp/catalogs')
-export class CatalogProductsController {
-  constructor(private readonly catalogService: CatalogProductsService) {}
+export class CatalogController {
+  constructor(private readonly catalogService: CatalogService) {}
 
   @Post('connect')
   @ApiConnectCatalogDocs()
