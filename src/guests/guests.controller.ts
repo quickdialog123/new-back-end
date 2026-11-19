@@ -9,13 +9,22 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 import type { z } from 'zod';
 
 import type { AuthenticatedUser } from '@quickdialog/auth/types/authenticated-user.type.js';
 import { CurrentUser } from '@quickdialog/common/decorators/current-user.decorator.js';
 import { Roles } from '@quickdialog/common/decorators/roles.decorator.js';
 import { UserRole } from '@quickdialog/generated/prisma/client.js';
+import {
+  ApiBulkCreateGuestsDocs,
+  ApiBulkDeleteGuestsDocs,
+  ApiCreateGuestDocs,
+  ApiDeleteGuestDocs,
+  ApiGetGuestDocs,
+  ApiListGuestsDocs,
+  ApiUpdateGuestDocs,
+} from '@quickdialog/swagger/decorators/guests.decorator.js';
 import {
   bulkCreateGuestsSchema,
   bulkDeleteGuestsSchema,
@@ -36,10 +45,7 @@ export class GuestsController {
   constructor(private readonly guestsService: GuestsService) {}
 
   @Post()
-  @ApiOperation({
-    summary: 'Create a guest for the authenticated user’s hotel',
-  })
-  @ApiResponse({ status: 201, description: 'Guest created' })
+  @ApiCreateGuestDocs()
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Body({ schema: createGuestSchema }) input: CreateGuestDTO,
@@ -48,13 +54,7 @@ export class GuestsController {
   }
 
   @Post('bulk')
-  @ApiOperation({
-    summary: 'Bulk create guests for the authenticated user’s hotel',
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Guests created; returns the count',
-  })
+  @ApiBulkCreateGuestsDocs()
   bulkCreate(
     @CurrentUser() user: AuthenticatedUser,
     @Body({ schema: bulkCreateGuestsSchema }) input: BulkCreateGuestsDTO,
@@ -63,16 +63,13 @@ export class GuestsController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List guests for the authenticated user’s hotel' })
-  @ApiResponse({ status: 200, description: 'Guests returned' })
+  @ApiListGuestsDocs()
   findAll(@CurrentUser() user: AuthenticatedUser) {
     return this.guestsService.findAll(user.hotelId!);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get a guest' })
-  @ApiResponse({ status: 200, description: 'Guest returned' })
-  @ApiResponse({ status: 404, description: 'Guest not found' })
+  @ApiGetGuestDocs()
   findOne(
     @CurrentUser() user: AuthenticatedUser,
     @Param({ schema: guestIdParamSchema })
@@ -83,13 +80,7 @@ export class GuestsController {
 
   @Delete('bulk')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Bulk delete guests from the authenticated user’s hotel',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Matching guests deleted; returns the count',
-  })
+  @ApiBulkDeleteGuestsDocs()
   bulkRemove(
     @CurrentUser() user: AuthenticatedUser,
     @Body({ schema: bulkDeleteGuestsSchema }) input: BulkDeleteGuestsDTO,
@@ -98,9 +89,7 @@ export class GuestsController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update a guest' })
-  @ApiResponse({ status: 200, description: 'Guest updated' })
-  @ApiResponse({ status: 404, description: 'Guest not found' })
+  @ApiUpdateGuestDocs()
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param({ schema: guestIdParamSchema })
@@ -112,9 +101,7 @@ export class GuestsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a guest' })
-  @ApiResponse({ status: 204, description: 'Guest deleted' })
-  @ApiResponse({ status: 404, description: 'Guest not found' })
+  @ApiDeleteGuestDocs()
   remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param({ schema: guestIdParamSchema })

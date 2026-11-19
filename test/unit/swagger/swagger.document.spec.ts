@@ -11,6 +11,8 @@ import { AuthController } from '@quickdialog/auth/auth.controller.js';
 import { AuthService } from '@quickdialog/auth/auth.service.js';
 import { HealthController } from '@quickdialog/health/health.controller.js';
 import { HealthService } from '@quickdialog/health/health.service.js';
+import { GuestsController } from '@quickdialog/guests/guests.controller.js';
+import { GuestsService } from '@quickdialog/guests/guests.service.js';
 import { EmbeddedSignupController } from '@quickdialog/whatsapp/embedded-signup/embedded-signup.controller.js';
 import { EmbeddedSignupService } from '@quickdialog/whatsapp/embedded-signup/embedded-signup.service.js';
 import { CatalogController } from '@quickdialog/whatsapp/catalog/catalog.controller.js';
@@ -34,6 +36,7 @@ describe('Swagger API contract', () => {
       controllers: [
         AuthController,
         HealthController,
+        GuestsController,
         WhatsappController,
         EmbeddedSignupController,
         CatalogController,
@@ -41,6 +44,7 @@ describe('Swagger API contract', () => {
       providers: [
         { provide: AuthService, useValue: {} },
         { provide: HealthService, useValue: {} },
+        { provide: GuestsService, useValue: {} },
         { provide: WhatsappService, useValue: {} },
         { provide: EmbeddedSignupService, useValue: {} },
         { provide: CatalogService, useValue: {} },
@@ -269,6 +273,40 @@ describe('Swagger API contract', () => {
       summary: 'Embedded Signup',
       parent: 'Whatsapp',
     });
+  });
+
+  it('documents guest operations with their summaries and response statuses', () => {
+    const create = document.paths['/api/guests'].post!;
+    const list = document.paths['/api/guests'].get!;
+    const get = document.paths['/api/guests/{id}'].get!;
+    const update = document.paths['/api/guests/{id}'].patch!;
+    const remove = document.paths['/api/guests/{id}'].delete!;
+    const bulkCreate = document.paths['/api/guests/bulk'].post!;
+    const bulkRemove = document.paths['/api/guests/bulk'].delete!;
+
+    expect(create.summary).toBe(
+      'Create a guest for the authenticated user’s hotel',
+    );
+    expect(create.responses).toHaveProperty('201');
+    expect(list.summary).toBe('List guests for the authenticated user’s hotel');
+    expect(list.responses).toHaveProperty('200');
+    expect(get.summary).toBe('Get a guest');
+    expect(get.responses).toHaveProperty('200');
+    expect(get.responses).toHaveProperty('404');
+    expect(update.summary).toBe('Update a guest');
+    expect(update.responses).toHaveProperty('200');
+    expect(update.responses).toHaveProperty('404');
+    expect(remove.summary).toBe('Delete a guest');
+    expect(remove.responses).toHaveProperty('204');
+    expect(remove.responses).toHaveProperty('404');
+    expect(bulkCreate.summary).toBe(
+      'Bulk create guests for the authenticated user’s hotel',
+    );
+    expect(bulkCreate.responses).toHaveProperty('201');
+    expect(bulkRemove.summary).toBe(
+      'Bulk delete guests from the authenticated user’s hotel',
+    );
+    expect(bulkRemove.responses).toHaveProperty('200');
   });
 
   it('documents protected WhatsApp catalog operations', () => {
