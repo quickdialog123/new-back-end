@@ -21,7 +21,9 @@ describe('Guests HTTP integration', () => {
   let authorization: string;
 
   beforeAll(async () => {
-    moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    moduleRef = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
     app = moduleRef.createNestApplication<NestFastifyApplication>(
       new FastifyAdapter(),
     );
@@ -66,10 +68,14 @@ describe('Guests HTTP integration', () => {
       include: { hotel: true },
     });
     hotelId = user.hotel!.id;
-    authorization = `Bearer ${(await authService.login(
-      { email: user.email, password: 'Password123!' },
-      {},
-    )).accessToken}`;
+    authorization = `Bearer ${
+      (
+        await authService.login(
+          { email: user.email, password: 'Password123!' },
+          {},
+        )
+      ).accessToken
+    }`;
   }
 
   function headers() {
@@ -81,8 +87,8 @@ describe('Guests HTTP integration', () => {
     const guestInput = {
       firstName: 'Sam',
       lastName: 'Guest',
-      email: 'sam@example.com',
       phoneNumber: '+1 555 010 0000',
+      address: '42 Example Street',
       checkInDate: '2026-11-19',
       checkOutDate: '2026-11-20',
       roomNumber: 101,
@@ -96,7 +102,13 @@ describe('Guests HTTP integration', () => {
       payload: guestInput,
     });
     expect(created.statusCode).toBe(201);
-    expect(created.json()).toMatchObject({ ...guestInput, hotelId });
+    expect(created.json()).toMatchObject({
+      ...guestInput,
+      checkInDate: '2026-11-19T00:00:00.000Z',
+      checkOutDate: '2026-11-20T00:00:00.000Z',
+      hotelId,
+    });
+    expect(created.json<{ email: string | null }>().email).toBeNull();
     const guestId = created.json<{ id: string }>().id;
 
     const duplicateContact = await app.inject({
@@ -105,7 +117,7 @@ describe('Guests HTTP integration', () => {
       headers: headers(),
       payload: { ...guestInput, firstName: 'Another' },
     });
-    expect(duplicateContact.statusCode).toBe(201);
+    expect(duplicateContact.statusCode).toBe(409);
 
     const listed = await app.inject({
       method: 'GET',
@@ -113,7 +125,7 @@ describe('Guests HTTP integration', () => {
       headers: headers(),
     });
     expect(listed.statusCode).toBe(200);
-    expect(listed.json()).toHaveLength(2);
+    expect(listed.json()).toHaveLength(1);
 
     const fetched = await app.inject({
       method: 'GET',
@@ -126,10 +138,13 @@ describe('Guests HTTP integration', () => {
       method: 'PATCH',
       url: `/api/guests/${guestId}`,
       headers: headers(),
-      payload: { firstName: 'Sam Updated' },
+      payload: { firstName: 'Sam Updated', address: '43 Example Street' },
     });
     expect(updated.statusCode).toBe(200);
-    expect(updated.json()).toMatchObject({ firstName: 'Sam Updated' });
+    expect(updated.json()).toMatchObject({
+      firstName: 'Sam Updated',
+      address: '43 Example Street',
+    });
 
     const deleted = await app.inject({
       method: 'DELETE',
@@ -296,8 +311,12 @@ describe('Guests HTTP integration', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ count: 1 });
-    expect(await prisma.guest.findUnique({ where: { id: ownGuest.id } })).toBeNull();
-    expect(await prisma.guest.findUnique({ where: { id: otherGuest.id } })).not.toBeNull();
+    expect(
+      await prisma.guest.findUnique({ where: { id: ownGuest.id } }),
+    ).toBeNull();
+    expect(
+      await prisma.guest.findUnique({ where: { id: otherGuest.id } }),
+    ).not.toBeNull();
   });
 
   it('does not expose a guest to a different hotel', async () => {
@@ -332,10 +351,14 @@ describe('Guests HTTP integration', () => {
         },
       },
     });
-    const otherAuthorization = `Bearer ${(await authService.login(
-      { email: otherUser.email, password: 'Password123!' },
-      {},
-    )).accessToken}`;
+    const otherAuthorization = `Bearer ${
+      (
+        await authService.login(
+          { email: otherUser.email, password: 'Password123!' },
+          {},
+        )
+      ).accessToken
+    }`;
 
     const response = await app.inject({
       method: 'GET',

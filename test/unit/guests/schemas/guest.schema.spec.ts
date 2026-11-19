@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   bulkCreateGuestsSchema,
   bulkDeleteGuestsSchema,
+  createGuestSchema,
+  updateGuestSchema,
 } from '@quickdialog/guests/schemas/guest.schema.js';
 
 const guest = (index: number) => ({
@@ -17,6 +19,27 @@ const guest = (index: number) => ({
 });
 
 describe('bulkCreateGuestsSchema', () => {
+  it('allows omitted email and address while requiring a phone number', () => {
+    const { email: _email, ...guestWithoutEmail } = guest(1);
+    const parsedWithoutAddress = createGuestSchema.safeParse(guestWithoutEmail);
+
+    expect(parsedWithoutAddress.success).toBe(true);
+    const parsedWithAddress = createGuestSchema.safeParse({
+      ...guestWithoutEmail,
+      address: '42 Example Street',
+    });
+    expect(parsedWithAddress.success).toBe(true);
+    if (parsedWithAddress.success) {
+      expect(parsedWithAddress.data.address).toBe('42 Example Street');
+    }
+    expect(
+      createGuestSchema.safeParse({
+        ...guestWithoutEmail,
+        phoneNumber: undefined,
+      }).success,
+    ).toBe(false);
+  });
+
   it('accepts a non-empty batch of valid guests', () => {
     expect(
       bulkCreateGuestsSchema.safeParse({ guests: [guest(1), guest(2)] })
@@ -68,6 +91,23 @@ describe('bulkCreateGuestsSchema', () => {
   });
 });
 
+describe('updateGuestSchema', () => {
+  it('allows updating optional email and address fields', () => {
+    const parsed = updateGuestSchema.safeParse({
+      email: 'updated@example.com',
+      address: '42 Example Street',
+    });
+
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data).toMatchObject({
+        email: 'updated@example.com',
+        address: '42 Example Street',
+      });
+    }
+  });
+});
+
 describe('bulkDeleteGuestsSchema', () => {
   it('accepts a non-empty batch of UUIDs', () => {
     expect(
@@ -82,13 +122,15 @@ describe('bulkDeleteGuestsSchema', () => {
 
   it('rejects empty, invalid, and over-limit ID batches', () => {
     expect(bulkDeleteGuestsSchema.safeParse({ ids: [] }).success).toBe(false);
-    expect(bulkDeleteGuestsSchema.safeParse({ ids: ['not-a-uuid'] }).success).toBe(
-      false,
-    );
+    expect(
+      bulkDeleteGuestsSchema.safeParse({ ids: ['not-a-uuid'] }).success,
+    ).toBe(false);
     expect(
       bulkDeleteGuestsSchema.safeParse({
-        ids: Array.from({ length: 501 }, (_, index) =>
-          `00000000-0000-4000-8000-${index.toString().padStart(12, '0')}`,
+        ids: Array.from(
+          { length: 501 },
+          (_, index) =>
+            `00000000-0000-4000-8000-${index.toString().padStart(12, '0')}`,
         ),
       }).success,
     ).toBe(false);

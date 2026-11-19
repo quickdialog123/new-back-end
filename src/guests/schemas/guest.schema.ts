@@ -3,8 +3,9 @@ import { z } from 'zod';
 const guestFields = {
   firstName: z.string().trim().min(1).max(100),
   lastName: z.string().trim().max(100),
-  email: z.string().trim().email(),
+  email: z.string().trim().email().optional(),
   phoneNumber: z.string().trim().min(1).max(32),
+  address: z.string().trim().optional(),
   checkInDate: z.iso.date(),
   checkOutDate: z.iso.date(),
   roomNumber: z.int(),
@@ -33,16 +34,20 @@ export const updateGuestSchema = z
   .object({
     firstName: guestFields.firstName.optional(),
     lastName: guestFields.lastName.optional(),
-    email: guestFields.email.optional(),
+    email: guestFields.email,
     phoneNumber: guestFields.phoneNumber.optional(),
+    address: guestFields.address,
     checkInDate: guestFields.checkInDate.optional(),
     checkOutDate: guestFields.checkOutDate.optional(),
     roomNumber: guestFields.roomNumber.optional(),
     floorNumber: guestFields.floorNumber.optional(),
   })
-  .refine((input) => Object.values(input).some((value) => value !== undefined), {
-    message: 'At least one guest field must be provided',
-  })
+  .refine(
+    (input) => Object.values(input).some((value) => value !== undefined),
+    {
+      message: 'At least one guest field must be provided',
+    },
+  )
   .refine(
     (input) =>
       input.checkInDate === undefined ||

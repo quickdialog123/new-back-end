@@ -14,6 +14,7 @@ const guestSelect = {
   lastName: true,
   email: true,
   phoneNumber: true,
+  address: true,
   checkInDate: true,
   checkOutDate: true,
   roomNumber: true,
@@ -31,8 +32,7 @@ export class GuestsService {
       .create({
         data: { ...this.toPrismaDates(input), hotelId },
         select: guestSelect,
-      })
-      .then((guest) => this.toResponseGuest(guest));
+      });
   }
 
   createMany(hotelId: string, guests: CreateGuestDTO[]) {
@@ -53,7 +53,7 @@ export class GuestsService {
       select: guestSelect,
       orderBy: { createdAt: 'desc' },
     });
-    return guests.map((guest) => this.toResponseGuest(guest));
+    return guests;
   }
 
   async findOne(hotelId: string, id: string) {
@@ -63,7 +63,7 @@ export class GuestsService {
     });
 
     if (!guest) throw new NotFoundException('Guest not found');
-    return this.toResponseGuest(guest);
+    return guest;
   }
 
   async update(hotelId: string, id: string, input: UpdateGuestDTO) {
@@ -105,13 +105,4 @@ export class GuestsService {
     };
   }
 
-  private toResponseGuest<T extends { checkInDate: Date; checkOutDate: Date }>(
-    guest: T,
-  ) {
-    return {
-      ...guest,
-      checkInDate: guest.checkInDate.toISOString().slice(0, 10),
-      checkOutDate: guest.checkOutDate.toISOString().slice(0, 10),
-    };
-  }
 }

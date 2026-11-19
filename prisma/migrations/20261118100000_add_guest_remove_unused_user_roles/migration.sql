@@ -31,8 +31,9 @@ CREATE TABLE "Guest" (
     "hotelId" TEXT NOT NULL,
     "firstName" TEXT NOT NULL,
     "lastName" TEXT NOT NULL,
-    "email" TEXT NOT NULL,
+    "email" TEXT,
     "phoneNumber" TEXT NOT NULL,
+    "address" TEXT,
     "checkInDate" DATE NOT NULL,
     "checkOutDate" DATE NOT NULL,
     "roomNumber" INTEGER NOT NULL,
@@ -44,6 +45,8 @@ CREATE TABLE "Guest" (
 );
 
 CREATE INDEX "Guest_hotelId_idx" ON "Guest"("hotelId");
+
+CREATE UNIQUE INDEX "Guest_phoneNumber_hotelId_key" ON "Guest"("phoneNumber", "hotelId");
 
 ALTER TABLE "Guest"
 ADD CONSTRAINT "Guest_hotelId_fkey"

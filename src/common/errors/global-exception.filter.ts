@@ -9,20 +9,12 @@ import { HttpAdapterHost } from '@nestjs/core';
 import { PinoLogger } from 'nestjs-pino';
 
 import type { ApiErrorResponse } from './api-error-response.type.js';
-import { MetaApiError } from './meta-api.error.js';
 
 type HttpExceptionBody = {
   code?: string;
   message?: string | string[];
   details?: unknown;
-  context?: unknown;
   [key: string]: unknown;
-};
-
-type MetaGraphHttpError = {
-  url: URL | string;
-  status: number;
-  body?: unknown;
 };
 
 @Catch()
@@ -39,21 +31,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const context = host.switchToHttp();
     const request = context.getRequest();
     const isHttpException = exception instanceof HttpException;
-    const isMetaApiError = exception instanceof MetaApiError;
-    const metaGraphError = this.extractMetaGraphError(exception);
 
-    const statusCode = isMetaApiError || metaGraphError
-      ? HttpStatus.CONFLICT
-      : isHttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+    const statusCode = isHttpException
+      ? exception.getStatus()
+      : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const {
-      code,
-      message,
-      details,
-      context: errorContext,
-    } = this.extractError(exception, statusCode);
+    const { code, message, details } = this.extractError(exception, statusCode);
 
     const response: ApiErrorResponse = {
       statusCode,
@@ -66,9 +49,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       ...(details !== undefined && {
         details,
       }),
-      ...(errorContext !== undefined && {
-        context: errorContext,
-      }),
     };
 
     /**
@@ -77,7 +57,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
      * Known HttpExceptions are already represented
      * by their HTTP status and will be logged by pino-http.
      */
-    if (!isHttpException && !isMetaApiError && !metaGraphError) {
+    if (!isHttpException) {
       this.logger.error(
         {
           err: exception,
@@ -92,52 +72,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     httpAdapter.reply(context.getResponse(), response, statusCode);
   }
 
-  private extractMetaGraphError(exception: unknown): MetaGraphHttpError | null {
-    if (typeof exception !== 'object' || exception === null) {
-      return null;
-    }
-
-    const candidate = exception as Partial<MetaGraphHttpError>;
-    if (typeof candidate.status !== 'number' || !candidate.url) {
-      return null;
-    }
-
-    try {
-      const url =
-        candidate.url instanceof URL ? candidate.url : new URL(candidate.url);
-      if (url.hostname !== 'graph.facebook.com') {
-        return null;
-      }
-
-      return {
-        url: candidate.url,
-        status: candidate.status,
-        body: candidate.body,
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  private formatMetaGraphError(error: MetaGraphHttpError): {
-    code: string;
-    message: string;
-    details?: unknown;
-  } {
-    const body = error.body as
-      { error?: { message?: unknown }; message?: unknown } | undefined;
-    const metaMessage = body?.error?.message ?? body?.message;
-
-    return {
-      code: 'META_ERROR',
-      message:
-        typeof metaMessage === 'string'
-          ? metaMessage
-          : 'Meta API request failed',
-      ...(error.body !== undefined && { details: error.body }),
-    };
-  }
-
   private extractError(
     exception: unknown,
     statusCode: number,
@@ -145,23 +79,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     code: string;
     message: string;
     details?: unknown;
-    context?: unknown;
   } {
-    if (exception instanceof MetaApiError) {
-      return {
-        code: 'META_API_ERROR',
-        message: exception.message,
-        ...(exception.context !== undefined && {
-          details: exception.context,
-        }),
-      };
-    }
-
-    const metaGraphError = this.extractMetaGraphError(exception);
-    if (metaGraphError) {
-      return this.formatMetaGraphError(metaGraphError);
-    }
-
     /**
      * Unknown/unexpected exceptions.
      *
@@ -207,9 +125,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         ...(details !== undefined && {
           details,
         }),
-        ...(body.context !== undefined && {
-          context: body.context,
-        }),
       };
     }
 
@@ -246,13 +161,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
      *
      * These should NOT become details.
      */
-    const knownKeys = new Set([
-      'statusCode',
-      'code',
-      'message',
-      'error',
-      'context',
-    ]);
+    const knownKeys = new Set(['statusCode', 'code', 'message', 'error']);
 
     const customPayload = Object.fromEntries(
       Object.entries(body).filter(([key]) => !knownKeys.has(key)),
