@@ -170,7 +170,7 @@ describe('Swagger API contract', () => {
             properties: {
               hotelId: { nullable: true },
               role: {
-                enum: ['OWNER', 'STAFF', 'SUPER_ADMIN', 'CLIENT', 'AUTHORITY'],
+                enum: ['OWNER', 'STAFF', 'SUPER_ADMIN'],
               },
             },
           },

@@ -16,8 +16,6 @@ export const jwtPayloadSchema = z.union([
     role: z.enum([
       UserRole.OWNER,
       UserRole.STAFF,
-      UserRole.CLIENT,
-      UserRole.AUTHORITY,
     ]),
   }),
 ]);

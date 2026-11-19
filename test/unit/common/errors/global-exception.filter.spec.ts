@@ -161,6 +161,67 @@ describe('GlobalExceptionFilter', () => {
     );
   });
 
+  it('formats Meta Graph API errors as conflicts with the original body in details', () => {
+    const metaBody = {
+      error: {
+        message: 'Application does not have permission for this action',
+        type: 'OAuthException',
+        code: 10,
+      },
+      businessId: 'business-id',
+    };
+    const error = Object.assign(
+      new Error(
+        'POST https://graph.facebook.com/v21.0/phone-id/whatsapp_commerce_settings failed with 400 Bad Request',
+      ),
+      { status: 400 },
+    );
+    Object.defineProperties(error, {
+      url: {
+        value:
+          'https://graph.facebook.com/v21.0/phone-id/whatsapp_commerce_settings',
+      },
+      body: { value: metaBody },
+    });
+
+    filter.catch(error, host as never);
+
+    expect(reply).toHaveBeenCalledWith(
+      response,
+      expect.objectContaining({
+        statusCode: 409,
+        code: 'META_ERROR',
+        message: 'Application does not have permission for this action',
+        details: metaBody,
+      }),
+      409,
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('does not treat non-Meta HTTP client errors as Meta errors', () => {
+    const error = Object.assign(
+      new Error('Request failed with status code 400'),
+      {
+        url: new URL('https://other.example.com/resource'),
+        status: 400,
+        body: { message: 'Other service failure' },
+      },
+    );
+
+    filter.catch(error, host as never);
+
+    expect(reply).toHaveBeenCalledWith(
+      response,
+      expect.objectContaining({
+        statusCode: 500,
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Internal server error',
+      }),
+      500,
+    );
+  });
+
   it('formats UnauthorizedException', () => {
     filter.catch(
       new UnauthorizedException('Invalid token'),

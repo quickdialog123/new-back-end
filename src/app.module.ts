@@ -14,6 +14,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { OriginGuard } from './common/guards/origin.guard.js';
 import { HotelModule } from './hotels/hotels.module.js';
+import { GuestsModule } from './guests/guests.module.js';
 import { DatabaseExceptionFilter } from './common/errors/database-exception.filter.js';
 
 @Module({
@@ -34,6 +35,7 @@ import { DatabaseExceptionFilter } from './common/errors/database-exception.filt
     DatabaseModule,
     AuthModule,
     HotelModule,
+    GuestsModule,
     LoggingModule,
     WhatsappModule,
   ],

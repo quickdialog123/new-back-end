@@ -19,6 +19,12 @@ type HttpExceptionBody = {
   [key: string]: unknown;
 };
 
+type MetaGraphHttpError = {
+  url: URL | string;
+  status: number;
+  body?: unknown;
+};
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   constructor(
@@ -83,6 +89,52 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     httpAdapter.reply(context.getResponse(), response, statusCode);
+  }
+
+  private extractMetaGraphError(exception: unknown): MetaGraphHttpError | null {
+    if (typeof exception !== 'object' || exception === null) {
+      return null;
+    }
+
+    const candidate = exception as Partial<MetaGraphHttpError>;
+    if (typeof candidate.status !== 'number' || !candidate.url) {
+      return null;
+    }
+
+    try {
+      const url =
+        candidate.url instanceof URL ? candidate.url : new URL(candidate.url);
+      if (url.hostname !== 'graph.facebook.com') {
+        return null;
+      }
+
+      return {
+        url: candidate.url,
+        status: candidate.status,
+        body: candidate.body,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private formatMetaGraphError(error: MetaGraphHttpError): {
+    code: string;
+    message: string;
+    details?: unknown;
+  } {
+    const body = error.body as
+      { error?: { message?: unknown }; message?: unknown } | undefined;
+    const metaMessage = body?.error?.message ?? body?.message;
+
+    return {
+      code: 'META_ERROR',
+      message:
+        typeof metaMessage === 'string'
+          ? metaMessage
+          : 'Meta API request failed',
+      ...(error.body !== undefined && { details: error.body }),
+    };
   }
 
   private extractError(
