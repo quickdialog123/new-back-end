@@ -1,4 +1,4 @@
-import { BadGatewayException, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@quickdialog/database/prisma.service.js';
 import { MetaGraphClient } from '../meta/meta-graph.client.js';
@@ -16,10 +16,11 @@ export class TemplatesService {
       orderBy: { updatedAt: 'desc' },
       select: { wabaId: true, accessTokenEncrypted: true },
     });
-    if (!account?.accessTokenEncrypted) throw new BadRequestException('Connected WhatsApp account is required');
+    if (!account?.accessTokenEncrypted) throw new ConflictException('Connected WhatsApp account is required');
+    const tokenKey = this.config.getOrThrow<string>('meta.tokenEncryptionKey');
     return {
       wabaId: account.wabaId,
-      token: decryptMetaToken(account.accessTokenEncrypted, this.config.getOrThrow<string>('meta.tokenEncryptionKey')),
+      token: decryptMetaToken(account.accessTokenEncrypted, tokenKey),
     };
   }
 
@@ -75,6 +76,7 @@ export class TemplatesService {
   async list(hotelId: string, after?: string) {
     const { wabaId, token } = await this.connection(hotelId);
     const page = await this.meta.listTemplates(wabaId, token, after);
+    if (!Array.isArray(page?.data)) throw new ConflictException('Meta did not return a template list');
     return { data: page.data.map((item) => this.present(item)), paging: { after: page.paging?.next ? page.paging.cursors?.after ?? null : null } };
   }
 
@@ -121,8 +123,8 @@ export class TemplatesService {
     const { wabaId, token } = await this.connection(hotelId);
     const components = this.components(input);
     const submitted = await this.meta.createTemplate(wabaId, token, { name: input.name, language: input.language, category: input.category, components });
-    if (!submitted || typeof submitted.id !== 'string' || !submitted.id.trim() || typeof submitted.status !== 'string' || !submitted.status.trim() || typeof submitted.category !== 'string' || !submitted.category.trim()) {
-      throw new BadGatewayException('Meta did not confirm template submission');
+    if (!submitted) {
+      throw new ConflictException('Meta did not confirm template submission');
     }
     return this.present({ id: submitted.id, name: input.name, language: input.language, category: submitted.category, status: submitted.status, components });
   }
@@ -133,7 +135,7 @@ export class TemplatesService {
     if (typeof fileName !== 'string' || !fileName || fileName.length > 128 || fileName.includes('/') || fileName.includes('\\') || Array.from(fileName).some((char) => char.charCodeAt(0) < 32)) throw new BadRequestException('Invalid media file name');
     const { token } = await this.connection(hotelId);
     const mediaHandle = await this.meta.uploadTemplateMedia(token, file, fileName, mimeType);
-    if (typeof mediaHandle !== 'string' || !mediaHandle.trim()) throw new BadGatewayException('Meta returned no template media handle');
+    if (typeof mediaHandle !== 'string' || !mediaHandle.trim()) throw new ConflictException('Meta returned no template media handle');
     return { mediaHandle };
   }
 
@@ -142,13 +144,14 @@ export class TemplatesService {
     const current = await this.ownedTemplate(wabaId, token, id);
     if (input.name !== current.name || input.language !== current.language) throw new BadRequestException('Template name and language cannot be edited');
     const response = await this.meta.editTemplate(id, token, { category: input.category, components: this.components(input) });
-    if (response?.success !== true || response.id !== id) throw new BadGatewayException('Meta did not confirm template update');
+    if (response?.success !== true || response.id !== id) throw new ConflictException('Meta did not confirm template update');
     return this.present(await this.meta.getTemplate(id, token));
   }
 
   async delete(hotelId: string, id: string) {
     const { wabaId, token } = await this.connection(hotelId);
     const current = await this.ownedTemplate(wabaId, token, id);
-    await this.meta.deleteTemplate(wabaId, id, current.name, token);
+    const response = await this.meta.deleteTemplate(wabaId, id, current.name, token);
+    if (response?.success !== true) throw new ConflictException('Meta did not confirm template deletion');
   }
 }

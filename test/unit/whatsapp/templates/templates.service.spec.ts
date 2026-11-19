@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BadGatewayException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { HttpResponseError } from '@nestjs/http-client';
 import { encryptMetaToken } from '@quickdialog/whatsapp/meta/meta-token.util.js';
 import { TemplatesService } from '@quickdialog/whatsapp/templates/templates.service.js';
@@ -49,17 +49,17 @@ describe('TemplatesService', () => {
     await expect(response).rejects.toBe(metaError);
   });
 
-  it('rejects a create response without a template ID', async () => {
-    meta.createTemplate.mockResolvedValueOnce({ id: '', status: 'PENDING', category: 'UTILITY' });
+  it('rejects a missing create response', async () => {
+    meta.createTemplate.mockResolvedValueOnce(null);
     await expect(service.create('hotel-1', {
       name: 'welcome', category: 'UTILITY', language: 'en_GB', header: null,
       body: 'Hello', footer: null, buttons: [],
-    })).rejects.toBeInstanceOf(BadGatewayException);
+    })).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('rejects an empty media handle from Meta', async () => {
     meta.uploadTemplateMedia.mockResolvedValueOnce('');
-    await expect(service.uploadMedia('hotel-1', Buffer.from('image'), 'header.png', 'image/png')).rejects.toBeInstanceOf(BadGatewayException);
+    await expect(service.uploadMedia('hotel-1', Buffer.from('image'), 'header.png', 'image/png')).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('rejects an unconfirmed template edit', async () => {
@@ -68,8 +68,18 @@ describe('TemplatesService', () => {
     await expect(service.edit('hotel-1', '123', {
       name: 'welcome', category: 'UTILITY', language: 'en_GB', header: null,
       body: 'Hello', footer: null, buttons: [],
-    })).rejects.toBeInstanceOf(BadGatewayException);
+    })).rejects.toBeInstanceOf(ConflictException);
     expect(meta.getTemplate).not.toHaveBeenCalled();
+  });
+
+  it('returns an empty template list when Meta has no templates', async () => {
+    meta.listTemplates.mockResolvedValueOnce({ data: [], paging: {} });
+    await expect(service.list('hotel-1')).resolves.toEqual({ data: [], paging: { after: null } });
+  });
+
+  it('rejects a missing template list response from Meta', async () => {
+    meta.listTemplates.mockResolvedValueOnce(null);
+    await expect(service.list('hotel-1')).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('rejects template IDs outside the connected WABA before detail', async () => {
@@ -80,13 +90,13 @@ describe('TemplatesService', () => {
 
   it('requires a connected account with a token', async () => {
     prisma.whatsAppAccount.findFirst.mockResolvedValueOnce(null);
-    await expect(service.list('hotel-1')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.list('hotel-1')).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('requires phone registration before listing templates', async () => {
     prisma.whatsAppAccount.findFirst.mockImplementationOnce((query: { where: { status: string } }) =>
       Promise.resolve(query.where.status === 'CONNECTED' ? null : { ...account, status: 'UNVERIFIED' }));
-    await expect(service.list('hotel-1')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.list('hotel-1')).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.whatsAppAccount.findFirst).toHaveBeenLastCalledWith(expect.objectContaining({
       where: { hotelId: 'hotel-1', status: 'CONNECTED', accessTokenEncrypted: { not: null } },
     }));
@@ -131,6 +141,19 @@ describe('TemplatesService', () => {
     await expect(service.uploadMedia('hotel-1', file, 'header.png', 'image/png')).resolves.toEqual({ mediaHandle: 'meta-handle' });
     expect(meta.uploadTemplateMedia).toHaveBeenCalledWith('secret-token', file, 'header.png', 'image/png');
     await expect(service.uploadMedia('hotel-1', file, '../bad.png', 'image/png')).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects an unconfirmed template deletion', async () => {
+    meta.listTemplates.mockResolvedValueOnce({ data: [{ id: '123', name: 'welcome' }], paging: {} });
+    meta.deleteTemplate.mockResolvedValueOnce({ success: false });
+    await expect(service.delete('hotel-1', '123')).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('deletes a template after Meta confirms it', async () => {
+    meta.listTemplates.mockResolvedValueOnce({ data: [{ id: '123', name: 'welcome' }], paging: {} });
+    meta.deleteTemplate.mockResolvedValueOnce({ success: true });
+    await expect(service.delete('hotel-1', '123')).resolves.toBeUndefined();
+    expect(meta.deleteTemplate).toHaveBeenLastCalledWith('waba-1', '123', 'welcome', 'secret-token');
   });
 
   it('returns the updated template after Meta confirms the edit', async () => {

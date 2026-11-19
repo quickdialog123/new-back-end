@@ -396,24 +396,21 @@ export class MetaGraphClient {
   }
 
   async deleteTemplate(wabaId: string, id: string, name: string, token: string) {
-    await this.http.delete(this.templatePath(wabaId), {
+    const { data } = await this.http.delete<MetaSuccessResponse>(this.templatePath(wabaId), {
       ...this.auth(token), query: { hsm_id: id, name },
     });
+    return data;
   }
 
   async uploadTemplateMedia(token: string, file: Buffer, fileName: string, mimeType: string): Promise<string> {
     const { data: session } = await this.http.post<MetaUploadSessionResponse>(`/${this.version}/${this.appId}/uploads`, {
       ...this.auth(token),
       query: { file_length: file.length, file_type: mimeType, file_name: fileName },
-    }).catch((error) => {
-      throw Object.assign(error as Error, { uploadStage: 'SESSION' });
     });
     const { data } = await this.http.post<MetaUploadFileResponse>(`/${this.version}/${session.id}`, {
       headers: { authorization: `Bearer ${token}`, file_offset: '0', 'content-type': 'application/octet-stream' },
       body: Uint8Array.from(file).buffer,
-    }).catch((error) => {
-      throw Object.assign(error as Error, { uploadStage: 'FILE' });
-    });
+    })  ;
     return data.h;
   }
 }
