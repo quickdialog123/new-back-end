@@ -7,6 +7,10 @@ export type MetaClientBusinessResponse = {
   client_business_id: string;
 };
 
+export type MetaSystemUserResponse = {
+  id: string;
+};
+
 export type MetaPhoneNumber = {
   id: string;
   display_phone_number?: string;
@@ -77,6 +81,10 @@ export type MetaCatalogBatchStatus = {
   ids_of_invalid_requests?: string[];
 };
 
+export type MetaCatalogBatchStatusResponse = {
+  data: MetaCatalogBatchStatus[];
+};
+
 export type MetaProductsResponse = {
   data: MetaProduct[];
   paging?: {
@@ -109,4 +117,80 @@ export type MetaCommerceSettingsResponse = {
 
 export type MetaAssignedCatalogsResponse = {
   data: MetaCatalog[];
+};
+
+export type MetaTemplateButton = {
+  type: string;
+  text: string;
+  url?: string;
+  phone_number?: string;
+};
+
+export type MetaTemplateComponent = {
+  type: string;
+  format?: string;
+  text?: string;
+  example?: {
+    header_text?: string[];
+    header_handle?: string[];
+    body_text?: string[][];
+  };
+  buttons?: MetaTemplateButton[];
+};
+
+export type MetaTemplateRequestButton =
+  | { type: 'QUICK_REPLY' | 'CATALOG'; text: string }
+  | { type: 'URL'; text: string; url: string }
+  | { type: 'PHONE_NUMBER'; text: string; phone_number: string };
+
+export type MetaTemplateRequestComponent =
+  | { type: 'HEADER'; format: 'TEXT'; text: string; example?: { header_text: string[] } }
+  | { type: 'HEADER'; format: 'IMAGE' | 'VIDEO' | 'DOCUMENT'; example: { header_handle: string[] } }
+  | { type: 'BODY'; text: string; example?: { body_text: string[][] } }
+  | { type: 'FOOTER'; text: string }
+  | { type: 'BUTTONS'; buttons: MetaTemplateRequestButton[] };
+
+export type MetaTemplateCreatePayload = {
+  name: string;
+  language: string;
+  category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
+  components: MetaTemplateRequestComponent[];
+};
+
+export type MetaTemplateEditPayload = Pick<MetaTemplateCreatePayload, 'category' | 'components'>;
+
+export type MetaTemplate = {
+  id: string;
+  name: string;
+  language: string;
+  category: string;
+  status: string;
+  components: MetaTemplateComponent[];
+  rejected_reason?: string;
+};
+
+export type MetaTemplateList = {
+  data: MetaTemplate[];
+  paging?: { cursors?: { after?: string }; next?: string };
+};
+
+export type MetaTemplateSubmission = {
+  id: string;
+  status: string;
+  category: string;
+};
+
+export type MetaTemplateEditResponse = {
+  success: boolean;
+  id: string;
+  name: string;
+  category: string;
+};
+
+export type MetaUploadSessionResponse = {
+  id: string;
+};
+
+export type MetaUploadFileResponse = {
+  h: string;
 };
