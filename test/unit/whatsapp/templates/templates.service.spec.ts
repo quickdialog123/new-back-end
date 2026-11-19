@@ -82,6 +82,16 @@ describe('TemplatesService', () => {
     await expect(service.list('hotel-1')).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('uses the WABA list result for detail without fetching the template again', async () => {
+    const template = { id: '123', name: 'welcome', language: 'en_GB', category: 'UTILITY', status: 'APPROVED', components: [{ type: 'BODY', text: 'Hello' }] };
+    meta.listTemplates
+      .mockResolvedValueOnce({ data: [], paging: { next: 'page-2', cursors: { after: 'cursor' } } })
+      .mockResolvedValueOnce({ data: [template], paging: {} });
+    await expect(service.detail('hotel-1', '123')).resolves.toMatchObject({ id: '123', body: 'Hello' });
+    expect(meta.listTemplates).toHaveBeenLastCalledWith('waba-1', 'secret-token', 'cursor');
+    expect(meta.getTemplate).not.toHaveBeenCalled();
+  });
+
   it('rejects template IDs outside the connected WABA before detail', async () => {
     meta.listTemplates.mockResolvedValueOnce({ data: [], paging: {} });
     await expect(service.detail('hotel-1', '999')).rejects.toBeInstanceOf(NotFoundException);

@@ -1,4 +1,4 @@
-import { BadGatewayException, BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@quickdialog/database/prisma.service.js';
 import { MetaGraphClient } from '../meta/meta-graph.client.js';
@@ -82,8 +82,7 @@ export class TemplatesService {
 
   async detail(hotelId: string, id: string) {
     const { wabaId, token } = await this.connection(hotelId);
-    await this.ownedTemplate(wabaId, token, id);
-    return this.present(await this.meta.getTemplate(id, token));
+    return this.present(await this.ownedTemplate(wabaId, token, id));
   }
 
   private components(input: TemplateInput) {
