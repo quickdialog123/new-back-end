@@ -40,8 +40,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const request = context.getRequest();
     const isHttpException = exception instanceof HttpException;
     const isMetaApiError = exception instanceof MetaApiError;
+    const metaGraphError = this.extractMetaGraphError(exception);
 
-    const statusCode = isMetaApiError
+    const statusCode = isMetaApiError || metaGraphError
       ? HttpStatus.CONFLICT
       : isHttpException
         ? exception.getStatus()
@@ -76,7 +77,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
      * Known HttpExceptions are already represented
      * by their HTTP status and will be logged by pino-http.
      */
-    if (!isHttpException && !isMetaApiError) {
+    if (!isHttpException && !isMetaApiError && !metaGraphError) {
       this.logger.error(
         {
           err: exception,
@@ -154,6 +155,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           details: exception.context,
         }),
       };
+    }
+
+    const metaGraphError = this.extractMetaGraphError(exception);
+    if (metaGraphError) {
+      return this.formatMetaGraphError(metaGraphError);
     }
 
     /**

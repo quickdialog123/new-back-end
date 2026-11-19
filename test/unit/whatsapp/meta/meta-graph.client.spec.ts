@@ -171,31 +171,6 @@ describe('MetaGraphClient', () => {
     );
   });
 
-  it('propagates Meta and network errors from catalog operations unchanged', async () => {
-    const metaError = new HttpResponseError({
-      method: 'GET',
-      url: 'https://graph.facebook.com/v26.0/catalog-id/products',
-      status: 400,
-      body: {
-        error: {
-          message: 'Catalog permission denied',
-          type: 'OAuthException',
-          code: 200,
-        },
-      },
-    });
-    get.mockRejectedValueOnce(metaError);
-    await expect(
-      client.getCatalogProducts('catalog-id', 'access-token'),
-    ).rejects.toBe(metaError);
-
-    const networkError = new Error('network detail');
-    get.mockRejectedValueOnce(networkError);
-    await expect(
-      client.getCatalogProducts('catalog-id', 'access-token'),
-    ).rejects.toBe(networkError);
-  });
-
   it('discovers owned and client catalogs for a business', async () => {
     get
       .mockResolvedValueOnce({
@@ -266,21 +241,20 @@ describe('MetaGraphClient', () => {
     );
   });
 
-  it('normalizes Meta and network errors for catalog operations', async () => {
-    get.mockRejectedValueOnce(
-      new HttpResponseError({
-        method: 'GET',
-        url: 'https://graph.facebook.com/v26.0/catalog-id/products',
-        status: 400,
-        body: {
-          error: {
-            message: 'Catalog permission denied',
-            type: 'OAuthException',
-            code: 200,
-          },
+  it('propagates Meta and network errors from catalog operations unchanged', async () => {
+    const metaError = new HttpResponseError({
+      method: 'GET',
+      url: 'https://graph.facebook.com/v26.0/catalog-id/products',
+      status: 400,
+      body: {
+        error: {
+          message: 'Catalog permission denied',
+          type: 'OAuthException',
+          code: 200,
         },
-      }),
-    );
+      },
+    });
+    get.mockRejectedValueOnce(metaError);
     await expect(
       client.getCatalogProducts('catalog-id', 'access-token'),
     ).rejects.toBe(metaError);
