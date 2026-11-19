@@ -12,12 +12,14 @@ import { CatalogController } from './catalog/catalog.controller.js';
 import { CatalogService } from './catalog/catalog.service.js';
 import { TemplatesController } from './templates/templates.controller.js';
 import { TemplatesService } from './templates/templates.service.js';
+import { metaGraphErrorInterceptor } from './meta/meta-error-interceptor.js';
 
 @Module({
   imports: [
     HttpClientModule.register({
       baseUrl: 'https://graph.facebook.com',
       timeout: '21s',
+      interceptors: [metaGraphErrorInterceptor],
     }),
   ],
   controllers: [
