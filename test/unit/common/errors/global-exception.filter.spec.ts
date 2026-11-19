@@ -16,6 +16,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { GlobalExceptionFilter } from '@quickdialog/common/errors/global-exception.filter.js';
+import { MetaApiError } from '@quickdialog/common/errors/meta-api.error.js';
 
 describe('GlobalExceptionFilter', () => {
   let filter: GlobalExceptionFilter;
@@ -119,6 +120,28 @@ describe('GlobalExceptionFilter', () => {
     );
 
     expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('exposes Meta API error context as details', () => {
+    const metaError = {
+      message: 'Application does not have permission for this action',
+      type: 'OAuthException',
+      code: 10,
+      error_subcode: 1690129,
+      error_user_title: 'Permission Required to Create Catalogue',
+      error_user_msg: 'You do not have permission to create a catalogue.',
+    };
+
+    filter.catch(new MetaApiError(metaError), host as never);
+
+    expect(reply).toHaveBeenCalledWith(
+      response,
+      expect.objectContaining({
+        code: 'META_API_ERROR',
+        details: metaError,
+      }),
+      HttpStatus.CONFLICT,
+    );
   });
 
   it('uses a specific error code for Meta gateway failures', () => {
