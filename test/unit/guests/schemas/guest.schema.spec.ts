@@ -6,9 +6,14 @@ import {
 } from '@quickdialog/guests/schemas/guest.schema.js';
 
 const guest = (index: number) => ({
-  fullName: `Guest ${index}`,
+  firstName: 'Guest',
+  lastName: `${index}`,
   email: `guest-${index}@example.com`,
   phoneNumber: '+1 555 010 0000',
+  checkInDate: '2026-11-19',
+  checkOutDate: '2026-11-20',
+  roomNumber: 101,
+  floorNumber: 1,
 });
 
 describe('bulkCreateGuestsSchema', () => {
@@ -37,6 +42,27 @@ describe('bulkCreateGuestsSchema', () => {
     expect(
       bulkCreateGuestsSchema.safeParse({
         guests: [guest(1), { ...guest(2), email: 'invalid-email' }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a guest whose check-out is not after check-in', () => {
+    expect(
+      bulkCreateGuestsSchema.safeParse({
+        guests: [{ ...guest(1), checkOutDate: '2026-11-19' }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects non-integer room and floor numbers', () => {
+    expect(
+      bulkCreateGuestsSchema.safeParse({
+        guests: [{ ...guest(1), roomNumber: 101.5 }],
+      }).success,
+    ).toBe(false);
+    expect(
+      bulkCreateGuestsSchema.safeParse({
+        guests: [{ ...guest(1), floorNumber: 1.5 }],
       }).success,
     ).toBe(false);
   });

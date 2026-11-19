@@ -79,9 +79,14 @@ describe('Guests HTTP integration', () => {
   it('creates, lists, retrieves, updates, and deletes hotel guests', async () => {
     await setupOwner();
     const guestInput = {
-      fullName: 'Sam Guest',
+      firstName: 'Sam',
+      lastName: 'Guest',
       email: 'sam@example.com',
       phoneNumber: '+1 555 010 0000',
+      checkInDate: '2026-11-19',
+      checkOutDate: '2026-11-20',
+      roomNumber: 101,
+      floorNumber: 1,
     };
 
     const created = await app.inject({
@@ -98,7 +103,7 @@ describe('Guests HTTP integration', () => {
       method: 'POST',
       url: '/api/guests',
       headers: headers(),
-      payload: { ...guestInput, fullName: 'Another Sam' },
+      payload: { ...guestInput, firstName: 'Another' },
     });
     expect(duplicateContact.statusCode).toBe(201);
 
@@ -121,10 +126,10 @@ describe('Guests HTTP integration', () => {
       method: 'PATCH',
       url: `/api/guests/${guestId}`,
       headers: headers(),
-      payload: { fullName: 'Sam Updated' },
+      payload: { firstName: 'Sam Updated' },
     });
     expect(updated.statusCode).toBe(200);
-    expect(updated.json()).toMatchObject({ fullName: 'Sam Updated' });
+    expect(updated.json()).toMatchObject({ firstName: 'Sam Updated' });
 
     const deleted = await app.inject({
       method: 'DELETE',
@@ -140,7 +145,7 @@ describe('Guests HTTP integration', () => {
       method: 'POST',
       url: '/api/guests',
       headers: headers(),
-      payload: { fullName: 'Incomplete Guest', phoneNumber: '+1 555 010 0000' },
+      payload: { firstName: 'Incomplete', phoneNumber: '+1 555 010 0000' },
     });
 
     expect(response.statusCode).toBe(400);
@@ -155,14 +160,24 @@ describe('Guests HTTP integration', () => {
       payload: {
         guests: [
           {
-            fullName: 'First Guest',
+            firstName: 'First',
+            lastName: 'Guest',
             email: 'first@example.com',
             phoneNumber: '+1 555 010 0001',
+            checkInDate: '2026-11-19',
+            checkOutDate: '2026-11-20',
+            roomNumber: 101,
+            floorNumber: 1,
           },
           {
-            fullName: 'Second Guest',
+            firstName: 'Second',
+            lastName: 'Guest',
             email: 'second@example.com',
             phoneNumber: '+1 555 010 0002',
+            checkInDate: '2026-11-19',
+            checkOutDate: '2026-11-20',
+            roomNumber: 102,
+            floorNumber: 1,
             hotelId: '00000000-0000-4000-8000-000000000000',
           },
         ],
@@ -185,14 +200,24 @@ describe('Guests HTTP integration', () => {
       payload: {
         guests: [
           {
-            fullName: 'Valid Guest',
+            firstName: 'Valid',
+            lastName: 'Guest',
             email: 'valid@example.com',
             phoneNumber: '+1 555 010 0001',
+            checkInDate: '2026-11-19',
+            checkOutDate: '2026-11-20',
+            roomNumber: 101,
+            floorNumber: 1,
           },
           {
-            fullName: 'Invalid Guest',
+            firstName: 'Invalid',
+            lastName: 'Guest',
             email: 'not-an-email',
             phoneNumber: '+1 555 010 0002',
+            checkInDate: '2026-11-19',
+            checkOutDate: '2026-11-20',
+            roomNumber: 102,
+            floorNumber: 1,
           },
         ],
       },
@@ -210,9 +235,14 @@ describe('Guests HTTP integration', () => {
       headers: headers(),
       payload: {
         guests: Array.from({ length: 501 }, (_, index) => ({
-          fullName: `Guest ${index}`,
+          firstName: 'Guest',
+          lastName: `${index}`,
           email: `guest-${index}@example.com`,
           phoneNumber: '+1 555 010 0000',
+          checkInDate: '2026-11-19',
+          checkOutDate: '2026-11-20',
+          roomNumber: 100 + index,
+          floorNumber: 1,
         })),
       },
     });
@@ -226,9 +256,14 @@ describe('Guests HTTP integration', () => {
     const ownGuest = await prisma.guest.create({
       data: {
         hotelId,
-        fullName: 'Own Guest',
+        firstName: 'Own',
+        lastName: 'Guest',
         email: 'own@example.com',
         phoneNumber: '+1 555 010 0001',
+        checkInDate: new Date('2026-11-19T00:00:00.000Z'),
+        checkOutDate: new Date('2026-11-20T00:00:00.000Z'),
+        roomNumber: 101,
+        floorNumber: 1,
       },
     });
     const otherHotel = await prisma.hotel.create({
@@ -241,9 +276,14 @@ describe('Guests HTTP integration', () => {
     const otherGuest = await prisma.guest.create({
       data: {
         hotelId: otherHotel.id,
-        fullName: 'Other Guest',
+        firstName: 'Other',
+        lastName: 'Guest',
         email: 'other@example.com',
         phoneNumber: '+1 555 010 0002',
+        checkInDate: new Date('2026-11-19T00:00:00.000Z'),
+        checkOutDate: new Date('2026-11-20T00:00:00.000Z'),
+        roomNumber: 102,
+        floorNumber: 1,
       },
     });
 
@@ -265,9 +305,14 @@ describe('Guests HTTP integration', () => {
     const guest = await prisma.guest.create({
       data: {
         hotelId,
-        fullName: 'Private Guest',
+        firstName: 'Private',
+        lastName: 'Guest',
         email: 'private@example.com',
         phoneNumber: '+1 555 010 0000',
+        checkInDate: new Date('2026-11-19T00:00:00.000Z'),
+        checkOutDate: new Date('2026-11-20T00:00:00.000Z'),
+        roomNumber: 101,
+        floorNumber: 1,
       },
     });
 

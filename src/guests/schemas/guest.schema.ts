@@ -1,12 +1,22 @@
 import { z } from 'zod';
 
 const guestFields = {
-  fullName: z.string().trim().min(1).max(200),
+  firstName: z.string().trim().min(1).max(100),
+  lastName: z.string().trim().max(100),
   email: z.string().trim().email(),
   phoneNumber: z.string().trim().min(1).max(32),
+  checkInDate: z.iso.date(),
+  checkOutDate: z.iso.date(),
+  roomNumber: z.int(),
+  floorNumber: z.int(),
 };
 
-export const createGuestSchema = z.object(guestFields);
+export const createGuestSchema = z
+  .object(guestFields)
+  .refine((guest) => guest.checkOutDate > guest.checkInDate, {
+    message: 'Check-out date must be after check-in date',
+    path: ['checkOutDate'],
+  });
 export type CreateGuestDTO = z.infer<typeof createGuestSchema>;
 
 export const bulkCreateGuestsSchema = z.object({
@@ -21,13 +31,28 @@ export type BulkDeleteGuestsDTO = z.infer<typeof bulkDeleteGuestsSchema>;
 
 export const updateGuestSchema = z
   .object({
-    fullName: guestFields.fullName.optional(),
+    firstName: guestFields.firstName.optional(),
+    lastName: guestFields.lastName.optional(),
     email: guestFields.email.optional(),
     phoneNumber: guestFields.phoneNumber.optional(),
+    checkInDate: guestFields.checkInDate.optional(),
+    checkOutDate: guestFields.checkOutDate.optional(),
+    roomNumber: guestFields.roomNumber.optional(),
+    floorNumber: guestFields.floorNumber.optional(),
   })
   .refine((input) => Object.values(input).some((value) => value !== undefined), {
     message: 'At least one guest field must be provided',
-  });
+  })
+  .refine(
+    (input) =>
+      input.checkInDate === undefined ||
+      input.checkOutDate === undefined ||
+      input.checkOutDate > input.checkInDate,
+    {
+      message: 'Check-out date must be after check-in date',
+      path: ['checkOutDate'],
+    },
+  );
 export type UpdateGuestDTO = z.infer<typeof updateGuestSchema>;
 
 export const guestIdParamSchema = z.object({ id: z.uuid() });

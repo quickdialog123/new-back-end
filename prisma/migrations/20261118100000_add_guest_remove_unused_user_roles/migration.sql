@@ -29,9 +29,14 @@ CHECK ("role" = 'SUPER_ADMIN' OR "hotelId" IS NOT NULL);
 CREATE TABLE "Guest" (
     "id" TEXT NOT NULL,
     "hotelId" TEXT NOT NULL,
-    "fullName" TEXT NOT NULL,
+    "firstName" TEXT NOT NULL,
+    "lastName" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "phoneNumber" TEXT NOT NULL,
+    "checkInDate" DATE NOT NULL,
+    "checkOutDate" DATE NOT NULL,
+    "roomNumber" INTEGER NOT NULL,
+    "floorNumber" INTEGER NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 

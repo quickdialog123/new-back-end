@@ -1,9 +1,14 @@
 model Guest {
-  id          String @id @default(uuid())
-  hotelId     String
-  fullName    String
-  email       String
-  phoneNumber String
+  id           String   @id @default(uuid())
+  hotelId      String
+  firstName    String
+  lastName     String
+  email        String
+  phoneNumber  String
+  checkInDate  DateTime @db.Date
+  checkOutDate DateTime @db.Date
+  roomNumber   Int
+  floorNumber  Int
 
   hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Restrict)
 
