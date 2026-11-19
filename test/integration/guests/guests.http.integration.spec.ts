@@ -138,7 +138,12 @@ describe('Guests HTTP integration', () => {
       method: 'PATCH',
       url: `/api/guests/${guestId}`,
       headers: headers(),
-      payload: { firstName: 'Sam Updated', address: '43 Example Street' },
+      payload: {
+        firstName: 'Sam Updated',
+        address: '43 Example Street',
+        checkInDate: '2026-11-20',
+        checkOutDate: '2026-11-21',
+      },
     });
     expect(updated.statusCode).toBe(200);
     expect(updated.json()).toMatchObject({

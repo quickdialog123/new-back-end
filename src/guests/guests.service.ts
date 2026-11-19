@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 
 import { PrismaService } from '@quickdialog/database/prisma.service.js';
@@ -28,11 +29,10 @@ export class GuestsService {
   constructor(private readonly prisma: PrismaService) {}
 
   create(hotelId: string, input: CreateGuestDTO) {
-    return this.prisma.guest
-      .create({
-        data: { ...this.toPrismaDates(input), hotelId },
-        select: guestSelect,
-      });
+    return this.prisma.guest.create({
+      data: { ...this.toPrismaDates(input), hotelId },
+      select: guestSelect,
+    });
   }
 
   createMany(hotelId: string, guests: CreateGuestDTO[]) {
@@ -68,9 +68,15 @@ export class GuestsService {
 
   async update(hotelId: string, id: string, input: UpdateGuestDTO) {
     const existing = await this.findOne(hotelId, id);
-    const checkInDate = input.checkInDate ?? existing.checkInDate;
-    const checkOutDate = input.checkOutDate ?? existing.checkOutDate;
-    if (checkOutDate <= checkInDate) {
+    const checkInTimestamp =
+      input.checkInDate === undefined
+        ? existing.checkInDate.getTime()
+        : Date.parse(input.checkInDate);
+    const checkOutTimestamp =
+      input.checkOutDate === undefined
+        ? existing.checkOutDate.getTime()
+        : Date.parse(input.checkOutDate);
+    if (checkOutTimestamp <= checkInTimestamp) {
       throw new BadRequestException(
         'Check-out date must be after check-in date',
       );
@@ -81,7 +87,8 @@ export class GuestsService {
       data: this.toPrismaDates(input),
     });
 
-    if (result.count === 0) throw new NotFoundException('Guest not found');
+    if (result.count === 0)
+      throw new UnprocessableEntityException('Failed to update guest');
     return this.findOne(hotelId, id);
   }
 
@@ -104,5 +111,4 @@ export class GuestsService {
       }),
     };
   }
-
 }

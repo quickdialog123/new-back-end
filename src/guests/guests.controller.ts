@@ -10,7 +10,6 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { z } from 'zod';
 
 import type { AuthenticatedUser } from '@quickdialog/auth/types/authenticated-user.type.js';
 import { CurrentUser } from '@quickdialog/common/decorators/current-user.decorator.js';
@@ -33,6 +32,7 @@ import {
   type BulkCreateGuestsDTO,
   type BulkDeleteGuestsDTO,
   type CreateGuestDTO,
+  type GuestIdParamDTO,
   type UpdateGuestDTO,
   updateGuestSchema,
 } from './schemas/guest.schema.js';
@@ -73,7 +73,7 @@ export class GuestsController {
   findOne(
     @CurrentUser() user: AuthenticatedUser,
     @Param({ schema: guestIdParamSchema })
-    { id }: z.infer<typeof guestIdParamSchema>,
+    { id }: GuestIdParamDTO,
   ) {
     return this.guestsService.findOne(user.hotelId!, id);
   }
@@ -93,7 +93,7 @@ export class GuestsController {
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param({ schema: guestIdParamSchema })
-    { id }: z.infer<typeof guestIdParamSchema>,
+    { id }: GuestIdParamDTO,
     @Body({ schema: updateGuestSchema }) input: UpdateGuestDTO,
   ) {
     return this.guestsService.update(user.hotelId!, id, input);
@@ -105,7 +105,7 @@ export class GuestsController {
   remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param({ schema: guestIdParamSchema })
-    { id }: z.infer<typeof guestIdParamSchema>,
+    { id }: GuestIdParamDTO,
   ) {
     return this.guestsService.remove(user.hotelId!, id);
   }

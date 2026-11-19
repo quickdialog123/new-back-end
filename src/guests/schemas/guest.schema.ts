@@ -61,3 +61,4 @@ export const updateGuestSchema = z
 export type UpdateGuestDTO = z.infer<typeof updateGuestSchema>;
 
 export const guestIdParamSchema = z.object({ id: z.uuid() });
+export type GuestIdParamDTO = z.infer<typeof guestIdParamSchema>;
