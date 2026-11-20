@@ -161,38 +161,25 @@ describe('GlobalExceptionFilter', () => {
     );
   });
 
-  it('formats Meta Graph API errors as conflicts with the original body in details', () => {
-    const metaBody = {
-      error: {
-        message: 'Application does not have permission for this action',
-        type: 'OAuthException',
-        code: 10,
-      },
-      businessId: 'business-id',
+  it('formats Meta Graph API errors from the interceptor as conflicts', () => {
+    const metaError = {
+      message: 'Application does not have permission for this action',
+      type: 'OAuthException',
+      code: 10,
+      error_subcode: 1690129,
+      error_user_title: 'Permission Required to Create Catalogue',
+      error_user_msg: 'You do not have permission to create a catalogue.',
     };
-    const error = Object.assign(
-      new Error(
-        'POST https://graph.facebook.com/v21.0/phone-id/whatsapp_commerce_settings failed with 400 Bad Request',
-      ),
-      { status: 400 },
-    );
-    Object.defineProperties(error, {
-      url: {
-        value:
-          'https://graph.facebook.com/v21.0/phone-id/whatsapp_commerce_settings',
-      },
-      body: { value: metaBody },
-    });
 
-    filter.catch(error, host as never);
+    filter.catch(new MetaApiError(metaError), host as never);
 
     expect(reply).toHaveBeenCalledWith(
       response,
       expect.objectContaining({
         statusCode: 409,
-        code: 'META_ERROR',
-        message: 'Application does not have permission for this action',
-        details: metaBody,
+        code: 'META_API_ERROR',
+        message: 'Meta API request failed',
+        details: metaError,
       }),
       409,
     );
