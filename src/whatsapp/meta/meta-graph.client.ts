@@ -303,11 +303,14 @@ export class MetaGraphClient {
   }
 
   async getSystemUserId(accessToken: string): Promise<string> {
-    const { data } = await this.http.get<MetaSystemUserResponse>(`/${this.version}/me?fields=id`, {
-      headers: {
-        authorization: `Bearer ${accessToken}`,
+    const { data } = await this.http.get<MetaSystemUserResponse>(
+      `/${this.version}/me?fields=id`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
       },
-    });
+    );
 
     return data.id;
   }
@@ -366,51 +369,107 @@ export class MetaGraphClient {
   }
 
   async listTemplates(wabaId: string, token: string, after?: string) {
-    const { data } = await this.http.get<MetaTemplateList>(this.templatePath(wabaId), {
-      ...this.auth(token),
-      query: { fields: 'id,name,language,category,status,components,rejected_reason', limit: 100, after },
-    });
+    const { data } = await this.http.get<MetaTemplateList>(
+      this.templatePath(wabaId),
+      {
+        ...this.auth(token),
+        query: {
+          fields: 'id,name,language,category,status,components,rejected_reason',
+          limit: 100,
+          after,
+        },
+      },
+    );
     return data;
   }
 
   async getTemplate(id: string, token: string) {
-    const { data } = await this.http.get<MetaTemplate>(this.templateIdPath(id), {
-      ...this.auth(token),
-      query: { fields: 'id,name,language,category,status,components,rejected_reason' },
-    });
+    const { data } = await this.http.get<MetaTemplate>(
+      this.templateIdPath(id),
+      {
+        ...this.auth(token),
+        query: {
+          fields: 'id,name,language,category,status,components,rejected_reason',
+        },
+      },
+    );
     return data;
   }
 
-  async createTemplate(wabaId: string, token: string, payload: MetaTemplateCreatePayload) {
-    const { data } = await this.http.post<MetaTemplateSubmission>(this.templatePath(wabaId), {
-      ...this.auth(token), json: payload,
-    });
+  async createTemplate(
+    wabaId: string,
+    token: string,
+    payload: MetaTemplateCreatePayload,
+  ) {
+    const { data } = await this.http.post<MetaTemplateSubmission>(
+      this.templatePath(wabaId),
+      {
+        ...this.auth(token),
+        json: payload,
+      },
+    );
     return data;
   }
 
-  async editTemplate(id: string, token: string, payload: MetaTemplateEditPayload) {
-    const { data } = await this.http.post<MetaTemplateEditResponse>(this.templateIdPath(id), {
-      ...this.auth(token), json: payload,
-    });
+  async editTemplate(
+    id: string,
+    token: string,
+    payload: MetaTemplateEditPayload,
+  ) {
+    const { data } = await this.http.post<MetaTemplateEditResponse>(
+      this.templateIdPath(id),
+      {
+        ...this.auth(token),
+        json: payload,
+      },
+    );
     return data;
   }
 
-  async deleteTemplate(wabaId: string, id: string, name: string, token: string) {
-    const { data } = await this.http.delete<MetaSuccessResponse>(this.templatePath(wabaId), {
-      ...this.auth(token), query: { hsm_id: id, name },
-    });
+  async deleteTemplate(
+    wabaId: string,
+    id: string,
+    name: string,
+    token: string,
+  ) {
+    const { data } = await this.http.delete<MetaSuccessResponse>(
+      this.templatePath(wabaId),
+      {
+        ...this.auth(token),
+        query: { hsm_id: id, name },
+      },
+    );
     return data;
   }
 
-  async uploadTemplateMedia(token: string, file: Buffer, fileName: string, mimeType: string): Promise<string> {
-    const { data: session } = await this.http.post<MetaUploadSessionResponse>(`/${this.version}/${this.appId}/uploads`, {
-      ...this.auth(token),
-      query: { file_length: file.length, file_type: mimeType, file_name: fileName },
-    });
-    const { data } = await this.http.post<MetaUploadFileResponse>(`/${this.version}/${session.id}`, {
-      headers: { authorization: `Bearer ${token}`, file_offset: '0', 'content-type': 'application/octet-stream' },
-      body: Uint8Array.from(file).buffer,
-    })  ;
+  async uploadTemplateMedia(
+    token: string,
+    file: Buffer,
+    fileName: string,
+    mimeType: string,
+  ): Promise<string> {
+    const { data: session } = await this.http.post<MetaUploadSessionResponse>(
+      `/${this.version}/${this.appId}/uploads`,
+      {
+        ...this.auth(token),
+        query: {
+          file_length: file.length,
+          file_type: mimeType,
+          file_name: fileName,
+        },
+      },
+    );
+    const { data } = await this.http.post<MetaUploadFileResponse>(
+      `/${this.version}/${session.id}`,
+      {
+        headers: {
+          authorization: `Bearer ${token}`,
+          file_offset: '0',
+          'content-type': 'application/octet-stream',
+        },
+        body: Uint8Array.from(file).buffer,
+      },
+    );
     return data.h;
   }
 }

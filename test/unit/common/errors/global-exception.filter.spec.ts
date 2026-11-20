@@ -161,6 +161,54 @@ describe('GlobalExceptionFilter', () => {
     );
   });
 
+  it('formats Meta Graph API errors from the interceptor as conflicts', () => {
+    const metaError = {
+      message: 'Application does not have permission for this action',
+      type: 'OAuthException',
+      code: 10,
+      error_subcode: 1690129,
+      error_user_title: 'Permission Required to Create Catalogue',
+      error_user_msg: 'You do not have permission to create a catalogue.',
+    };
+
+    filter.catch(new MetaApiError(metaError), host as never);
+
+    expect(reply).toHaveBeenCalledWith(
+      response,
+      expect.objectContaining({
+        statusCode: 409,
+        code: 'META_API_ERROR',
+        message: 'Meta API request failed',
+        details: metaError,
+      }),
+      409,
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('does not treat non-Meta HTTP client errors as Meta errors', () => {
+    const error = Object.assign(
+      new Error('Request failed with status code 400'),
+      {
+        url: new URL('https://other.example.com/resource'),
+        status: 400,
+        body: { message: 'Other service failure' },
+      },
+    );
+
+    filter.catch(error, host as never);
+
+    expect(reply).toHaveBeenCalledWith(
+      response,
+      expect.objectContaining({
+        statusCode: 500,
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Internal server error',
+      }),
+      500,
+    );
+  });
+
   it('formats UnauthorizedException', () => {
     filter.catch(
       new UnauthorizedException('Invalid token'),

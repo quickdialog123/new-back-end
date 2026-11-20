@@ -171,6 +171,76 @@ describe('MetaGraphClient', () => {
     );
   });
 
+  it('discovers owned and client catalogs for a business', async () => {
+    get
+      .mockResolvedValueOnce({
+        data: { data: [{ id: 'owned', name: 'Owned' }] },
+      })
+      .mockResolvedValueOnce({
+        data: { data: [{ id: 'client', name: 'Client' }] },
+      });
+
+    await expect(
+      client.getProductCatalogs('business-id', 'access-token'),
+    ).resolves.toEqual([
+      { id: 'owned', name: 'Owned' },
+      { id: 'client', name: 'Client' },
+    ]);
+    expect(get).toHaveBeenNthCalledWith(
+      1,
+      '/v26.0/business-id/owned_product_catalogs?fields=id%2Cname%2Cproduct_count&limit=100',
+      { headers: { authorization: 'Bearer access-token' } },
+    );
+    expect(get).toHaveBeenNthCalledWith(
+      2,
+      '/v26.0/business-id/client_product_catalogs?fields=id%2Cname%2Cproduct_count&limit=100',
+      { headers: { authorization: 'Bearer access-token' } },
+    );
+  });
+
+  it('lists catalog items with an optional cursor', async () => {
+    get.mockResolvedValueOnce({ data: { data: [{ id: 'graph-id' }] } });
+
+    await expect(
+      client.getCatalogProducts('catalog-id', 'access-token', 'cursor'),
+    ).resolves.toEqual({ data: [{ id: 'graph-id' }] });
+    expect(get).toHaveBeenCalledWith(
+      '/v26.0/catalog-id/products?fields=id%2Cretailer_id%2Cname%2Cdescription%2Curl%2Cimage_url%2Cavailability%2Cprice%2Ccurrency%2Cbrand%2Ccondition&limit=100&after=cursor',
+      { headers: { authorization: 'Bearer access-token' } },
+    );
+  });
+
+  it('submits product batch operations and reads their processing status', async () => {
+    post.mockResolvedValueOnce({ data: { handles: ['batch-handle'] } });
+    get.mockResolvedValueOnce({
+      data: { data: [{ handle: 'batch-handle', status: 'finished' }] },
+    });
+
+    await client.submitCatalogProductBatch('catalog-id', 'access-token', [
+      { method: 'DELETE', data: { id: 'retailer-id' } },
+    ]);
+    await expect(
+      client.getCatalogBatchStatus(
+        'catalog-id',
+        'access-token',
+        'batch-handle',
+      ),
+    ).resolves.toEqual({ handle: 'batch-handle', status: 'finished' });
+
+    expect(post).toHaveBeenCalledWith('/v26.0/catalog-id/items_batch', {
+      headers: { authorization: 'Bearer access-token' },
+      json: {
+        item_type: 'PRODUCT_ITEM',
+        allow_upsert: false,
+        requests: [{ method: 'DELETE', data: { id: 'retailer-id' } }],
+      },
+    });
+    expect(get).toHaveBeenCalledWith(
+      '/v26.0/catalog-id/check_batch_request_status?handle=batch-handle&load_ids_of_invalid_requests=true&fields=handle%2Cstatus%2Cwarnings%2Cerrors_total_count%2Cids_of_invalid_requests',
+      { headers: { authorization: 'Bearer access-token' } },
+    );
+  });
+
   it('propagates Meta and network errors from catalog operations unchanged', async () => {
     const metaError = new HttpResponseError({
       method: 'GET',
@@ -385,24 +455,56 @@ describe('MetaGraphClient', () => {
   });
 
   it('uploads template media as bytes and returns the Meta handle', async () => {
-    post.mockResolvedValueOnce({ data: { id: 'upload:session?sig=signature' } }).mockResolvedValueOnce({ data: { h: 'media-handle' } });
-    await expect(client.uploadTemplateMedia('access-token', Buffer.from('image'), 'header.png', 'image/png')).resolves.toBe('media-handle');
+    post
+      .mockResolvedValueOnce({ data: { id: 'upload:session?sig=signature' } })
+      .mockResolvedValueOnce({ data: { h: 'media-handle' } });
+    await expect(
+      client.uploadTemplateMedia(
+        'access-token',
+        Buffer.from('image'),
+        'header.png',
+        'image/png',
+      ),
+    ).resolves.toBe('media-handle');
     expect(post).toHaveBeenNthCalledWith(1, '/v26.0/meta-app-id/uploads', {
       headers: { authorization: 'Bearer access-token' },
-      query: { file_length: 5, file_type: 'image/png', file_name: 'header.png' },
+      query: {
+        file_length: 5,
+        file_type: 'image/png',
+        file_name: 'header.png',
+      },
     });
-    expect(post).toHaveBeenNthCalledWith(2, '/v26.0/upload:session?sig=signature', expect.objectContaining({
-      headers: { authorization: 'Bearer access-token', file_offset: '0', 'content-type': 'application/octet-stream' },
-      body: expect.any(ArrayBuffer),
-    }));
+    expect(post).toHaveBeenNthCalledWith(
+      2,
+      '/v26.0/upload:session?sig=signature',
+      expect.objectContaining({
+        headers: {
+          authorization: 'Bearer access-token',
+          file_offset: '0',
+          'content-type': 'application/octet-stream',
+        },
+        body: expect.any(ArrayBuffer),
+      }),
+    );
   });
   it('paginates business catalogs and deduplicates shared catalog IDs', async () => {
     get
-      .mockResolvedValueOnce({ data: { data: [{ id: 'shared', name: 'Owned name' }], paging: { cursors: { after: 'next' } } } })
-      .mockResolvedValueOnce({ data: { data: [{ id: 'owned', name: 'Second page' }] } })
-      .mockResolvedValueOnce({ data: { data: [{ id: 'shared', name: 'Client name' }] } });
+      .mockResolvedValueOnce({
+        data: {
+          data: [{ id: 'shared', name: 'Owned name' }],
+          paging: { cursors: { after: 'next' } },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: { data: [{ id: 'owned', name: 'Second page' }] },
+      })
+      .mockResolvedValueOnce({
+        data: { data: [{ id: 'shared', name: 'Client name' }] },
+      });
 
-    await expect(client.getProductCatalogs('business-id', 'access-token')).resolves.toEqual([
+    await expect(
+      client.getProductCatalogs('business-id', 'access-token'),
+    ).resolves.toEqual([
       { id: 'shared', name: 'Client name' },
       { id: 'owned', name: 'Second page' },
     ]);
@@ -415,30 +517,41 @@ describe('MetaGraphClient', () => {
   it('lists catalog products without a cursor', async () => {
     get.mockResolvedValueOnce({ data: { data: [] } });
 
-    await expect(client.getCatalogProducts('catalog-id', 'access-token')).resolves.toEqual({ data: [] });
+    await expect(
+      client.getCatalogProducts('catalog-id', 'access-token'),
+    ).resolves.toEqual({ data: [] });
     expect(get.mock.calls[0][0]).not.toContain('&after=');
   });
 
   it('rejects an empty catalog batch status response', async () => {
     get.mockResolvedValueOnce({ data: { data: [] } });
 
-    await expect(client.getCatalogBatchStatus('catalog-id', 'access-token', 'handle')).rejects.toThrow(
-      'Meta returned no catalog batch status',
-    );
+    await expect(
+      client.getCatalogBatchStatus('catalog-id', 'access-token', 'handle'),
+    ).rejects.toThrow('Meta returned no catalog batch status');
   });
 
   it('rejects a catalog connection that Meta does not confirm', async () => {
     post.mockResolvedValueOnce({ data: { success: false } });
 
-    await expect(client.connectCatalogToWaba('waba-id', 'catalog-id', 'access-token')).rejects.toMatchObject({
-      response: { code: 'META_CATALOG_CONNECTION_FAILED', message: 'Meta did not confirm the catalog connection' },
+    await expect(
+      client.connectCatalogToWaba('waba-id', 'catalog-id', 'access-token'),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'META_CATALOG_CONNECTION_FAILED',
+        message: 'Meta did not confirm the catalog connection',
+      },
     });
   });
 
   it('updates the cart setting without changing catalog visibility', async () => {
     post.mockResolvedValueOnce({ data: { success: true } });
 
-    await expect(client.updateCommerceSettings('phone-id', 'access-token', { cartEnabled: true })).resolves.toBeUndefined();
+    await expect(
+      client.updateCommerceSettings('phone-id', 'access-token', {
+        cartEnabled: true,
+      }),
+    ).resolves.toBeUndefined();
     expect(post).toHaveBeenCalledWith(
       '/v26.0/phone-id/whatsapp_commerce_settings?is_cart_enabled=true',
       { headers: { authorization: 'Bearer access-token' } },
@@ -448,17 +561,18 @@ describe('MetaGraphClient', () => {
   it('rejects commerce settings updates that Meta does not confirm', async () => {
     post.mockResolvedValueOnce({ data: { success: false } });
 
-    await expect(client.updateCommerceSettings('phone-id', 'access-token', { cartEnabled: false })).rejects.toThrow(
-      'Meta did not update commerce settings',
-    );
+    await expect(
+      client.updateCommerceSettings('phone-id', 'access-token', {
+        cartEnabled: false,
+      }),
+    ).rejects.toThrow('Meta did not update commerce settings');
   });
 
   it('rejects catalog disconnections that Meta does not confirm', async () => {
     remove.mockResolvedValueOnce({ data: { success: false } });
 
-    await expect(client.disconnectCatalogFromWaba('waba-id', 'catalog-id', 'access-token')).rejects.toThrow(
-      'Meta did not disconnect the catalog',
-    );
+    await expect(
+      client.disconnectCatalogFromWaba('waba-id', 'catalog-id', 'access-token'),
+    ).rejects.toThrow('Meta did not disconnect the catalog');
   });
-
 });

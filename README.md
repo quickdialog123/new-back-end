@@ -166,6 +166,20 @@ Successful responses never include hotel tokens or owner password hashes. Deacti
 
 There is no reactivation endpoint. `PATCH /api/hotels/:id` cannot change a hotel's `active` state.
 
+## Guests
+
+Guest endpoints require an authenticated `OWNER` or `STAFF` user and are automatically scoped to that user's hotel:
+
+- `POST /api/guests` creates a guest.
+- `POST /api/guests/bulk` creates 1–500 guests in one database operation. Send `{ "guests": [{ "fullName": "...", "email": "...", "phoneNumber": "..." }] }`; the response is `{ "count": <number> }`. The whole request is rejected if any row is invalid.
+- `DELETE /api/guests/bulk` deletes matching guests by ID (1–500 UUIDs). Send `{ "ids": ["<guest-id>"] }`; guests outside the authenticated user's hotel are not deleted. The response is `{ "count": <number> }`.
+- `GET /api/guests` lists guests for the hotel.
+- `GET /api/guests/:id` retrieves a guest.
+- `PATCH /api/guests/:id` updates one or more guest fields.
+- `DELETE /api/guests/:id` deletes a guest.
+
+Guests require a full name, email, and phone number. Contact details are not unique, and reservations are not included in this MVP.
+
 ## WhatsApp connection
 
 WhatsApp connections are hotel-scoped and can be managed by an authenticated hotel owner. Embedded Signup is completed through `POST /api/whatsapp/embedded-signup/complete`; the backend exchanges its code, validates the selected WABA and phone number, subscribes the app, and stores the Meta access token encrypted.

@@ -61,6 +61,12 @@ describe('jwtPayloadSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it.each(['CLIENT', 'AUTHORITY'])('rejects the removed %s role', (role) => {
+    const result = jwtPayloadSchema.safeParse({ ...validPayload, role });
+
+    expect(result.success).toBe(false);
+  });
+
   it('rejects a missing sid', () => {
     const { sid: _, ...payload } = validPayload;
 

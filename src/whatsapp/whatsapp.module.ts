@@ -10,9 +10,9 @@ import { WebhookService } from './webhooks/webhook.service.js';
 import { WebhookSignatureGuard } from './webhooks/webhook-signature.guard.js';
 import { CatalogController } from './catalog/catalog.controller.js';
 import { CatalogService } from './catalog/catalog.service.js';
+import { metaGraphErrorInterceptor } from './meta/meta-error-interceptor.js';
 import { TemplatesController } from './templates/templates.controller.js';
 import { TemplatesService } from './templates/templates.service.js';
-import { metaGraphErrorInterceptor } from './meta/meta-error-interceptor.js';
 
 @Module({
   imports: [
