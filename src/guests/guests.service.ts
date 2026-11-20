@@ -30,14 +30,14 @@ export class GuestsService {
 
   create(hotelId: string, input: CreateGuestDTO) {
     return this.prisma.guest.create({
-      data: { ...this.toPrismaDates(input), hotelId },
+      data: { ...input, hotelId },
       select: guestSelect,
     });
   }
 
   createMany(hotelId: string, guests: CreateGuestDTO[]) {
     return this.prisma.guest.createMany({
-      data: guests.map((guest) => ({ ...this.toPrismaDates(guest), hotelId })),
+      data: guests.map((guest) => ({ ...guest, hotelId })),
     });
   }
 
@@ -71,11 +71,11 @@ export class GuestsService {
     const checkInTimestamp =
       input.checkInDate === undefined
         ? existing.checkInDate.getTime()
-        : Date.parse(input.checkInDate);
+        : input.checkInDate.getTime();
     const checkOutTimestamp =
       input.checkOutDate === undefined
         ? existing.checkOutDate.getTime()
-        : Date.parse(input.checkOutDate);
+        : input.checkOutDate.getTime();
     if (checkOutTimestamp <= checkInTimestamp) {
       throw new BadRequestException(
         'Check-out date must be after check-in date',
@@ -84,7 +84,7 @@ export class GuestsService {
 
     const result = await this.prisma.guest.updateMany({
       where: { id, hotelId },
-      data: this.toPrismaDates(input),
+      data: input,
     });
 
     if (result.count === 0)
@@ -98,17 +98,5 @@ export class GuestsService {
     });
 
     if (result.count === 0) throw new NotFoundException('Guest not found');
-  }
-
-  private toPrismaDates<T extends Partial<CreateGuestDTO>>(input: T) {
-    return {
-      ...input,
-      ...(input.checkInDate !== undefined && {
-        checkInDate: new Date(`${input.checkInDate}T00:00:00.000Z`),
-      }),
-      ...(input.checkOutDate !== undefined && {
-        checkOutDate: new Date(`${input.checkOutDate}T00:00:00.000Z`),
-      }),
-    };
   }
 }

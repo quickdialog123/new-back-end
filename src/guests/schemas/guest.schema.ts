@@ -6,8 +6,12 @@ const guestFields = {
   email: z.string().trim().email().optional(),
   phoneNumber: z.string().trim().min(1).max(32),
   address: z.string().trim().optional(),
-  checkInDate: z.iso.date(),
-  checkOutDate: z.iso.date(),
+  checkInDate: z.iso
+    .date()
+    .transform((value) => new Date(`${value}T00:00:00.000Z`)),
+  checkOutDate: z.iso
+    .date()
+    .transform((value) => new Date(`${value}T00:00:00.000Z`)),
   roomNumber: z.int(),
   floorNumber: z.int(),
 };

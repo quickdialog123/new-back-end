@@ -19,6 +19,13 @@ const guest = (index: number) => ({
 });
 
 describe('bulkCreateGuestsSchema', () => {
+  it('transforms guest date strings into UTC-midnight Dates', () => {
+    const parsed = createGuestSchema.parse(guest(1));
+
+    expect(parsed.checkInDate).toEqual(new Date('2026-11-19T00:00:00.000Z'));
+    expect(parsed.checkOutDate).toEqual(new Date('2026-11-20T00:00:00.000Z'));
+  });
+
   it('allows omitted email and address while requiring a phone number', () => {
     const { email: _email, ...guestWithoutEmail } = guest(1);
     const parsedWithoutAddress = createGuestSchema.safeParse(guestWithoutEmail);
@@ -92,6 +99,12 @@ describe('bulkCreateGuestsSchema', () => {
 });
 
 describe('updateGuestSchema', () => {
+  it('transforms provided date strings into UTC-midnight Dates', () => {
+    const parsed = updateGuestSchema.parse({ checkInDate: '2026-11-19' });
+
+    expect(parsed.checkInDate).toEqual(new Date('2026-11-19T00:00:00.000Z'));
+  });
+
   it('allows updating optional email and address fields', () => {
     const parsed = updateGuestSchema.safeParse({
       email: 'updated@example.com',

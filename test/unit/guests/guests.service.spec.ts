@@ -27,8 +27,8 @@ describe('GuestsService', () => {
         lastName: 'Guest',
         email: 'first@example.com',
         phoneNumber: '+1 555 010 0001',
-        checkInDate: '2026-11-19',
-        checkOutDate: '2026-11-20',
+        checkInDate: new Date('2026-11-19T00:00:00.000Z'),
+        checkOutDate: new Date('2026-11-20T00:00:00.000Z'),
         roomNumber: 101,
         floorNumber: 1,
       },
@@ -37,8 +37,8 @@ describe('GuestsService', () => {
         lastName: 'Guest',
         email: 'second@example.com',
         phoneNumber: '+1 555 010 0002',
-        checkInDate: '2026-11-19',
-        checkOutDate: '2026-11-20',
+        checkInDate: new Date('2026-11-19T00:00:00.000Z'),
+        checkOutDate: new Date('2026-11-20T00:00:00.000Z'),
         roomNumber: 102,
         floorNumber: 1,
       },
@@ -51,8 +51,6 @@ describe('GuestsService', () => {
     expect(guestCreateMany).toHaveBeenCalledWith({
       data: guests.map((guest) => ({
         ...guest,
-        checkInDate: new Date(`${guest.checkInDate}T00:00:00.000Z`),
-        checkOutDate: new Date(`${guest.checkOutDate}T00:00:00.000Z`),
         hotelId: 'hotel-id',
       })),
     });
