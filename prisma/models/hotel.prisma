@@ -1,9 +1,13 @@
-model Hostel {
+model Hotel {
   id          String   @id @default(uuid())
   name        String
   phoneNumber String
   token       String   @unique
+  active      Boolean  @default(true)
   users       User[]
+  guests      Guest[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  whatsAppAccount WhatsAppAccount[]
 }

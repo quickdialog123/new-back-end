@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { SwaggerModule } from '@nestjs/swagger';
 import { createSwaggerConfig } from './swagger.config.js';
+import { buildNestedTags } from './swagger.tags.js';
 
 export function setupSwagger(
   app: NestFastifyApplication,
@@ -13,6 +14,7 @@ export function setupSwagger(
     app,
     createSwaggerConfig(config),
   );
+  buildNestedTags(document);
 
   SwaggerModule.setup(
     config.get<string>('swagger.path', 'docs'),

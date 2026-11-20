@@ -11,7 +11,17 @@ import { AuthController } from '@quickdialog/auth/auth.controller.js';
 import { AuthService } from '@quickdialog/auth/auth.service.js';
 import { HealthController } from '@quickdialog/health/health.controller.js';
 import { HealthService } from '@quickdialog/health/health.service.js';
+import { GuestsController } from '@quickdialog/guests/guests.controller.js';
+import { GuestsService } from '@quickdialog/guests/guests.service.js';
+import { EmbeddedSignupController } from '@quickdialog/whatsapp/embedded-signup/embedded-signup.controller.js';
+import { EmbeddedSignupService } from '@quickdialog/whatsapp/embedded-signup/embedded-signup.service.js';
+import { CatalogController } from '@quickdialog/whatsapp/catalog/catalog.controller.js';
+import { CatalogService } from '@quickdialog/whatsapp/catalog/catalog.service.js';
+import { MetaGraphClient } from '@quickdialog/whatsapp/meta/meta-graph.client.js';
+import { WhatsappController } from '@quickdialog/whatsapp/whatsapp.controller.js';
+import { WhatsappService } from '@quickdialog/whatsapp/whatsapp.service.js';
 import { createSwaggerConfig } from '@quickdialog/swagger/swagger.config.js';
+import { buildNestedTags } from '@quickdialog/swagger/swagger.tags.js';
 
 describe('Swagger API contract', () => {
   let app: NestFastifyApplication;
@@ -23,10 +33,22 @@ describe('Swagger API contract', () => {
     } as unknown as ConfigService;
 
     const moduleRef = await Test.createTestingModule({
-      controllers: [AuthController, HealthController],
+      controllers: [
+        AuthController,
+        HealthController,
+        GuestsController,
+        WhatsappController,
+        EmbeddedSignupController,
+        CatalogController,
+      ],
       providers: [
         { provide: AuthService, useValue: {} },
         { provide: HealthService, useValue: {} },
+        { provide: GuestsService, useValue: {} },
+        { provide: WhatsappService, useValue: {} },
+        { provide: EmbeddedSignupService, useValue: {} },
+        { provide: CatalogService, useValue: {} },
+        { provide: MetaGraphClient, useValue: {} },
         { provide: ConfigService, useValue: config },
       ],
     }).compile();
@@ -38,6 +60,7 @@ describe('Swagger API contract', () => {
     await app.init();
 
     document = SwaggerModule.createDocument(app, createSwaggerConfig(config));
+    buildNestedTags(document);
   });
 
   afterAll(async () => {
@@ -150,7 +173,9 @@ describe('Swagger API contract', () => {
           schema: {
             properties: {
               hotelId: { nullable: true },
-              role: { enum: ['OWNER', 'STAFF', 'SUPER_ADMIN'] },
+              role: {
+                enum: ['OWNER', 'STAFF', 'SUPER_ADMIN'],
+              },
             },
           },
         },
@@ -158,5 +183,190 @@ describe('Swagger API contract', () => {
     });
     expect(logout.responses).toHaveProperty('204');
     expect(logoutAll.responses).toHaveProperty('204');
+  });
+
+  it('documents protected WhatsApp lifecycle operations', () => {
+    const status = document.paths['/api/whatsapp/status'].get!;
+    const disconnect = document.paths['/api/whatsapp/disconnect'].post!;
+    const complete =
+      document.paths['/api/whatsapp/embedded-signup/complete'].post!;
+    const register = document.paths['/api/whatsapp/register'].post!;
+
+    for (const operation of [status, disconnect, complete, register]) {
+      expect(operation.security).toEqual([{ 'access-token': [] }]);
+      expect(operation.responses).toHaveProperty('401');
+      expect(operation.responses).toHaveProperty('403');
+      expect(operation.responses).toHaveProperty('429');
+    }
+
+    expect(status).toMatchObject({
+      tags: ['Whatsapp'],
+      summary: 'Get WhatsApp connection status',
+      responses: {
+        200: {
+          content: {
+            'application/json': {
+              schema: {
+                required: [
+                  'status',
+                  'wabaId',
+                  'phoneNumber',
+                  'displayName',
+                  'wabaStatus',
+                  'qualityRating',
+                  'connectedAt',
+                  'errorMessage',
+                ],
+                properties: {
+                  status: {
+                    enum: ['CONNECTED', 'NOT_CONNECTED', 'UNVERIFIED'],
+                  },
+                  connectedAt: { format: 'date-time', nullable: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(status.responses).toHaveProperty('400');
+    expect(disconnect).toMatchObject({
+      tags: ['Whatsapp'],
+      summary: 'Disconnect WhatsApp',
+      responses: { 201: status.responses['200'] },
+    });
+    expect(disconnect.responses).toHaveProperty('400');
+    expect(complete).toMatchObject({
+      tags: ['Whatsapp / Embedded Signup'],
+      summary: 'Complete WhatsApp Embedded Signup',
+      responses: { 201: status.responses['200'] },
+      requestBody: {
+        content: {
+          'application/json': {
+            schema: {
+              required: ['code', 'wabaId', 'phoneNumberId'],
+              properties: {
+                code: { minLength: 1 },
+                wabaId: { minLength: 1 },
+                phoneNumberId: { minLength: 1 },
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(complete.responses).toHaveProperty('201');
+    expect(complete.responses).toHaveProperty('400');
+    expect(complete.responses).toHaveProperty('404');
+    expect(register.requestBody).toMatchObject({
+      content: {
+        'application/json': {
+          schema: {
+            required: ['pin'],
+            properties: { pin: { pattern: '^\\d{6}$' } },
+          },
+        },
+      },
+    });
+    expect(document.tags).toContainEqual({
+      name: 'Whatsapp / Embedded Signup',
+      summary: 'Embedded Signup',
+      parent: 'Whatsapp',
+    });
+  });
+
+  it('documents guest operations with their summaries and response statuses', () => {
+    const create = document.paths['/api/guests'].post!;
+    const list = document.paths['/api/guests'].get!;
+    const get = document.paths['/api/guests/{id}'].get!;
+    const update = document.paths['/api/guests/{id}'].patch!;
+    const remove = document.paths['/api/guests/{id}'].delete!;
+    const bulkCreate = document.paths['/api/guests/bulk'].post!;
+    const bulkRemove = document.paths['/api/guests/bulk'].delete!;
+
+    expect(create.summary).toBe(
+      'Create a guest for the authenticated user’s hotel',
+    );
+    expect(create.responses).toHaveProperty('201');
+    expect(list.summary).toBe('List guests for the authenticated user’s hotel');
+    expect(list.responses).toHaveProperty('200');
+    expect(get.summary).toBe('Get a guest');
+    expect(get.responses).toHaveProperty('200');
+    expect(get.responses).toHaveProperty('404');
+    expect(update.summary).toBe('Update a guest');
+    expect(update.responses).toHaveProperty('200');
+    expect(update.responses).toHaveProperty('404');
+    expect(remove.summary).toBe('Delete a guest');
+    expect(remove.responses).toHaveProperty('204');
+    expect(remove.responses).toHaveProperty('404');
+    expect(bulkCreate.summary).toBe(
+      'Bulk create guests for the authenticated user’s hotel',
+    );
+    expect(bulkCreate.responses).toHaveProperty('201');
+    expect(bulkRemove.summary).toBe(
+      'Bulk delete guests from the authenticated user’s hotel',
+    );
+    expect(bulkRemove.responses).toHaveProperty('200');
+  });
+
+  it('documents protected WhatsApp catalog operations', () => {
+    const connect = document.paths['/api/whatsapp/catalogs/connect'].post!;
+    const disconnect =
+      document.paths['/api/whatsapp/catalogs/disconnect'].post!;
+    const connection = document.paths['/api/whatsapp/catalogs/connection'].get!;
+    const available = document.paths['/api/whatsapp/catalogs/available'].get!;
+    const settings = document.paths['/api/whatsapp/catalogs/settings'].patch!;
+
+    for (const operation of [
+      connect,
+      disconnect,
+      connection,
+      available,
+      settings,
+    ]) {
+      expect(operation).toMatchObject({ tags: ['Whatsapp / Catalogs'] });
+      expect(operation.security).toEqual([{ 'access-token': [] }]);
+      expect(operation.responses).toHaveProperty('401');
+      expect(operation.responses).toHaveProperty('403');
+      expect(operation.responses).toHaveProperty('429');
+    }
+
+    expect(connect).toMatchObject({
+      summary: 'Connect a product catalog to WhatsApp',
+      requestBody: {
+        content: {
+          'application/json': {
+            schema: {
+              required: ['catalogId'],
+              properties: { catalogId: { minLength: 1 } },
+            },
+          },
+        },
+      },
+    });
+    expect(connect.responses).toHaveProperty('201');
+    expect(disconnect.responses).toHaveProperty('201');
+    expect(connection.responses).toHaveProperty('200');
+    expect(available.responses).toHaveProperty('200');
+    expect(settings).toMatchObject({
+      requestBody: {
+        content: {
+          'application/json': {
+            schema: {
+              properties: {
+                catalogVisible: { type: 'boolean' },
+                cartEnabled: { type: 'boolean' },
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(settings.responses).toHaveProperty('200');
+    expect(document.tags).toContainEqual({
+      name: 'Whatsapp / Catalogs',
+      summary: 'Catalogs',
+      parent: 'Whatsapp',
+    });
   });
 });

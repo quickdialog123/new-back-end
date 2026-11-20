@@ -1,0 +1,21 @@
+model Guest {
+  id           String   @id @default(uuid())
+  hotelId      String
+  firstName    String
+  lastName     String
+  email        String?
+  phoneNumber  String
+  address      String?
+  checkInDate  DateTime @db.Date
+  checkOutDate DateTime @db.Date
+  roomNumber   Int
+  floorNumber  Int
+
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([hotelId])
+  @@unique([phoneNumber, hotelId])
+}
