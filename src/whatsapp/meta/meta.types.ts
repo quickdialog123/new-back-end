@@ -139,7 +139,7 @@ export type MetaTemplateComponent = {
 };
 
 export type MetaTemplateRequestButton =
-  | { type: 'QUICK_REPLY' | 'CATALOG'; text: string }
+  | { type: 'QUICK_REPLY' | 'CATALOG' | 'MPM'; text: string }
   | { type: 'URL'; text: string; url: string }
   | { type: 'PHONE_NUMBER'; text: string; phone_number: string };
 

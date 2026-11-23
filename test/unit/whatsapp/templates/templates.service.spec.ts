@@ -32,6 +32,28 @@ describe('TemplatesService', () => {
     expect(result).toMatchObject({ body: 'Hi {{1}}', broadcastEligible: false, buttons: [] });
   });
 
+  it('submits a multi-product marketing template with an MPM button', async () => {
+    const input = templateInputSchema.parse({
+      name: 'new_collection', category: 'MARKETING', language: 'en_US',
+      header: { type: 'TEXT', text: 'New arrivals' }, body: 'Explore our collection',
+      footer: null, buttons: [{ type: 'MPM', text: 'View items' }], sampleValues: {},
+    });
+    meta.createTemplate.mockResolvedValueOnce({ id: '456', status: 'PENDING', category: 'MARKETING' });
+    await expect(service.create('hotel-1', input)).resolves.toMatchObject({
+      buttons: [{ type: 'MPM', text: 'View items' }], status: 'PENDING',
+    });
+    expect(meta.createTemplate).toHaveBeenLastCalledWith('waba-1', 'secret-token', {
+      name: 'new_collection', category: 'MARKETING', language: 'en_US',
+      components: [
+        { type: 'HEADER', format: 'TEXT', text: 'New arrivals' },
+        { type: 'BODY', text: 'Explore our collection' },
+        { type: 'BUTTONS', buttons: [{ type: 'MPM', text: 'View items' }] },
+      ],
+    });
+    expect(templateInputSchema.safeParse({ ...input, header: null }).success).toBe(false);
+    expect(templateInputSchema.safeParse({ ...input, category: 'UTILITY' }).success).toBe(false);
+  });
+
   it('lets Meta template errors reach the global handler', async () => {
     const metaError = new HttpResponseError({
       method: 'POST', url: 'https://graph.facebook.com/message_templates', status: 400,
