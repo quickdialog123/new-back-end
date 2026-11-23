@@ -16,6 +16,7 @@ const button = z.discriminatedUnion('type', [
     phoneNumber: z.string().regex(/^\+[1-9]\d{6,14}$/),
   }),
   z.object({ type: z.literal('CATALOG'), text: z.literal('View catalog') }),
+  z.object({ type: z.literal('MPM'), text: z.literal('View items') }),
 ]);
 
 const header = z.discriminatedUnion('type', [
@@ -67,6 +68,18 @@ export const templateInputSchema = z
         path: ['buttons'],
         message:
           'A catalog template needs one catalog button, a marketing category, and no header',
+      });
+    }
+    if (
+      value.buttons.some((item) => item.type === 'MPM') &&
+      (value.category !== 'MARKETING' ||
+        value.buttons.length !== 1 ||
+        value.header?.type !== 'TEXT')
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['buttons'],
+        message: 'A multi-product template needs one MPM button, a marketing category, and a text header',
       });
     }
     if (new Set(value.buttons.map((item) => item.type)).size > 1)
