@@ -270,6 +270,65 @@ export class MetaGraphClient {
     return data.data[0] ?? null;
   }
 
+  async findTemplate(
+    wabaId: string,
+    accessToken: string,
+    name: string,
+    language: string,
+  ): Promise<MetaTemplateList> {
+    const params = new URLSearchParams({
+      name,
+      language,
+      status: 'APPROVED',
+      fields: 'id,name,language,status,category,components',
+    });
+
+    const { data } = await this.http.get<MetaTemplateList>(
+      `/${this.version}/${wabaId}/message_templates?${params}`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    return data;
+  }
+
+  async sendTemplateMessage(
+    phoneNumberId: string,
+    accessToken: string,
+    to: string,
+    templateName: string,
+    templateLanguage: string,
+  ): Promise<string> {
+    const { data } = await this.http.post<{
+      messages?: { id: string }[];
+    }>(
+      `/${this.version}/${phoneNumberId}/messages`,
+      {
+        ...this.auth(accessToken),
+        json: {
+          messaging_product: 'whatsapp',
+          to,
+          type: 'template',
+          template: {
+            name: templateName,
+            language: { code: templateLanguage },
+          },
+        },
+      },
+    );
+
+    const messageId = data.messages?.[0]?.id;
+
+    if (!messageId) {
+      throw new Error('Meta did not return a message ID');
+    }
+
+    return messageId;
+  }
+
   async updateCommerceSettings(
     phoneNumberId: string,
     accessToken: string,

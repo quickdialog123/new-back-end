@@ -9,3 +9,17 @@ enum WhatsAppAccountStatus {
   NOT_CONNECTED
   UNVERIFIED
 }
+
+enum BroadcastGuestStatus {
+  PENDING
+  RECEIVED
+  FAILED
+}
+
+enum BroadcastCampaignStatus {
+  DRAFT
+  SENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}

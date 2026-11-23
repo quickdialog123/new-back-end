@@ -1,0 +1,25 @@
+model BroadcastCampaign {
+  id               String                  @id @default(uuid())
+  hotelId          String
+  name             String
+  templateName     String
+  templateLanguage String
+  status           BroadcastCampaignStatus @default(DRAFT)
+
+  guests BroadcastCampaignGuest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BroadcastCampaignGuest {
+  campaignId String
+  guestId    String
+  messageId  String?
+  status     BroadcastGuestStatus?
+
+  campaign BroadcastCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  guest    Guest             @relation(fields: [guestId], references: [id])
+
+  @@id([campaignId, guestId])
+}

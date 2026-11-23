@@ -11,11 +11,12 @@ model Guest {
   roomNumber   Int
   floorNumber  Int
 
-  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Restrict)
+  hotel              Hotel                    @relation(fields: [hotelId], references: [id], onDelete: Restrict)
+  broadcastCampaigns BroadcastCampaignGuest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([hotelId])
   @@unique([phoneNumber, hotelId])
+  @@index([hotelId])
 }

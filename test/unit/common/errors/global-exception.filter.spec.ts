@@ -137,10 +137,11 @@ describe('GlobalExceptionFilter', () => {
     expect(reply).toHaveBeenCalledWith(
       response,
       expect.objectContaining({
+        statusCode: 550,
         code: 'META_API_ERROR',
         details: metaError,
       }),
-      HttpStatus.CONFLICT,
+      550,
     );
   });
 
@@ -161,7 +162,7 @@ describe('GlobalExceptionFilter', () => {
     );
   });
 
-  it('formats Meta Graph API errors from the interceptor as conflicts', () => {
+  it('formats Meta Graph API errors from the interceptor with status 550', () => {
     const metaError = {
       message: 'Application does not have permission for this action',
       type: 'OAuthException',
@@ -176,12 +177,12 @@ describe('GlobalExceptionFilter', () => {
     expect(reply).toHaveBeenCalledWith(
       response,
       expect.objectContaining({
-        statusCode: 409,
+        statusCode: 550,
         code: 'META_API_ERROR',
         message: 'Meta API request failed',
         details: metaError,
       }),
-      409,
+      550,
     );
     expect(logger.error).not.toHaveBeenCalled();
   });
