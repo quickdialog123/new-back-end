@@ -6,7 +6,10 @@ model BroadcastCampaign {
   templateLanguage String
   status           BroadcastCampaignStatus @default(DRAFT)
 
-  guests BroadcastCampaignGuest[]
+  hotel   Hotel                     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  guests  BroadcastCampaignGuest[]
+
+  @@index([hotelId])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

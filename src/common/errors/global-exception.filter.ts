@@ -36,7 +36,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const isMetaApiError = exception instanceof MetaApiError;
 
     const statusCode = isMetaApiError
-      ? 550
+      ? HttpStatus.BAD_REQUEST
       : isHttpException
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;

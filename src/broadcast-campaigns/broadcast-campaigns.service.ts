@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -56,7 +57,7 @@ export class BroadcastCampaignsService {
   ) {}
 
   async create(hotelId: string, input: CreateBroadcastCampaignDTO) {
-    const guestIds = [...new Set(input.guestIds ?? [])];
+    const guestIds = input.guestIds ?? [];
 
     await this.assertHotelGuests(hotelId, guestIds);
 
@@ -104,11 +105,8 @@ export class BroadcastCampaignsService {
   async update(hotelId: string, id: string, input: UpdateBroadcastCampaignDTO) {
     const { guestIds, ...fields } = input;
 
-    const uniqueGuestIds =
-      guestIds === undefined ? undefined : [...new Set(guestIds)];
-
-    if (uniqueGuestIds !== undefined) {
-      await this.assertHotelGuests(hotelId, uniqueGuestIds);
+    if (guestIds !== undefined) {
+      await this.assertHotelGuests(hotelId, guestIds);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -125,14 +123,14 @@ export class BroadcastCampaignsService {
         throw new ConflictException('Only draft campaigns can be updated');
       }
 
-      if (uniqueGuestIds !== undefined) {
+      if (guestIds !== undefined) {
         await tx.broadcastCampaignGuest.deleteMany({
           where: { campaignId: id },
         });
 
-        if (uniqueGuestIds.length) {
+        if (guestIds.length) {
           await tx.broadcastCampaignGuest.createMany({
-            data: uniqueGuestIds.map((guestId) => ({
+            data: guestIds.map((guestId) => ({
               campaignId: id,
               guestId,
             })),
@@ -189,28 +187,16 @@ export class BroadcastCampaignsService {
   async preview(hotelId: string, id: string) {
     const campaign = await this.findOne(hotelId, id);
 
-    const account = await this.prisma.whatsAppAccount.findFirst({
-      where: {
-        hotelId,
-        status: 'CONNECTED',
-        accessTokenEncrypted: { not: null },
-      },
-      orderBy: { updatedAt: 'desc' },
-      select: { wabaId: true, accessTokenEncrypted: true },
-    });
+    const account = await this.getConnectedWhatsAppAccount(hotelId, true);
 
-    if (!account?.accessTokenEncrypted) {
+    if (!account) {
       throw new ConflictException('Connected WhatsApp account is required');
     }
-
-    const tokenKey = this.config.getOrThrow<string>('meta.tokenEncryptionKey');
-
-    const token = decryptMetaToken(account.accessTokenEncrypted, tokenKey);
 
     // Find the selected template directly
     const result = await this.meta.findTemplate(
       account.wabaId,
-      token,
+      account.token,
       campaign.templateName,
       campaign.templateLanguage,
     );
@@ -246,25 +232,33 @@ export class BroadcastCampaignsService {
       throw new ConflictException('Only draft campaigns can be started');
     }
 
-    const account = await this.prisma.whatsAppAccount.findFirst({
-      where: {
-        hotelId,
-        status: 'CONNECTED',
-        accessTokenEncrypted: { not: null },
-      },
-      select: {
-        phoneNumberId: true,
-        accessTokenEncrypted: true,
-      },
-    });
+    if (!campaign.guests.length) {
+      throw new BadRequestException('Campaign must have at least one guest');
+    }
 
-    if (!account?.accessTokenEncrypted) {
+    const account = await this.getConnectedWhatsAppAccount(hotelId);
+
+    if (!account) {
       throw new ConflictException('WhatsApp account not connected');
     }
 
-    const tokenKey = this.config.getOrThrow<string>('meta.tokenEncryptionKey');
+    const isValid = await this.meta.findTemplate(
+      account.wabaId,
+      account.token,
+      campaign.templateName,
+      campaign.templateLanguage,
+    );
 
-    const token = decryptMetaToken(account.accessTokenEncrypted, tokenKey);
+    const template = isValid.data?.find(
+      (item) =>
+        item.name === campaign.templateName &&
+        item.language === campaign.templateLanguage &&
+        item.status === 'APPROVED',
+    );
+
+    if (!template) {
+      throw new NotFoundException('Approved WhatsApp template not found');
+    }
 
     const result = await this.prisma.broadcastCampaign.updateMany({
       where: {
@@ -281,90 +275,157 @@ export class BroadcastCampaignsService {
       throw new ConflictException('Campaign already started');
     }
 
-    const successful: { guestId: string; messageId: string }[] = [];
-    const failed: string[] = [];
-    const uncertain: string[] = [];
-
-    for (const recipient of campaign.guests) {
-      try {
-        const messageId = await this.meta.sendTemplateMessage(
-          account.phoneNumberId,
-          token,
-          recipient.guest.phoneNumber,
-          campaign.templateName,
-          campaign.templateLanguage,
-        );
-
-        successful.push({
-          guestId: recipient.guest.id,
-          messageId,
-        });
-      } catch (error) {
-        if (error instanceof HttpResponseError && error.status < 500) {
-          failed.push(recipient.guest.id);
-        } else {
-          uncertain.push(recipient.guest.id);
-        }
-      }
-    }
-
-    const updates = [
-      ...successful.map(({ guestId, messageId }) =>
-        this.prisma.broadcastCampaignGuest.update({
-          where: {
-            campaignId_guestId: {
-              campaignId: id,
-              guestId,
-            },
-          },
-          data: { messageId },
-        }),
-      ),
-
-      ...failed.map((guestId) =>
-        this.prisma.broadcastCampaignGuest.update({
-          where: {
-            campaignId_guestId: {
-              campaignId: id,
-              guestId,
-            },
-          },
-          data: {
-            status: BroadcastGuestStatus.FAILED,
-          },
-        }),
-      ),
-    ];
-
-    if (updates.length) await this.prisma.$transaction(updates);
+    // Fire-and-forget
+    void this.processCampaign(campaign, account).catch((error) => {
+      console.error(`Campaign ${id} processing failed:`, error);
+    });
 
     return {
       campaignId: id,
-      accepted: successful.length,
-      failed: failed.length,
-      uncertain: uncertain.length,
+      status: BroadcastCampaignStatus.SENDING,
     };
   }
-
   private async assertHotelGuests(
     hotelId: string,
     guestIds: string[],
   ): Promise<void> {
-    const uniqueIds = [...new Set(guestIds)];
-
-    if (!uniqueIds.length) return;
+    if (!guestIds.length) return;
 
     const count = await this.prisma.guest.count({
       where: {
         hotelId,
-        id: { in: uniqueIds },
+        id: { in: guestIds },
       },
     });
 
-    if (count !== uniqueIds.length) {
+    if (count !== guestIds.length) {
       throw new NotFoundException(
         'One or more guests were not found for this hotel',
       );
     }
+  }
+
+  private async getConnectedWhatsAppAccount(
+    hotelId: string,
+    newestFirst = false,
+  ) {
+    const account = await this.prisma.whatsAppAccount.findFirst({
+      where: {
+        hotelId,
+        status: 'CONNECTED',
+        accessTokenEncrypted: { not: null },
+      },
+      ...(newestFirst ? { orderBy: { updatedAt: 'desc' as const } } : {}),
+      select: {
+        wabaId: true,
+        phoneNumberId: true,
+        accessTokenEncrypted: true,
+      },
+    });
+
+    if (!account?.accessTokenEncrypted) return null;
+
+    const tokenKey = this.config.getOrThrow<string>('meta.tokenEncryptionKey');
+    return {
+      ...account,
+      token: decryptMetaToken(account.accessTokenEncrypted, tokenKey),
+    };
+  }
+
+  private async processCampaign(
+    campaign: Awaited<ReturnType<BroadcastCampaignsService['findOne']>>,
+    account: Awaited<
+      ReturnType<BroadcastCampaignsService['getConnectedWhatsAppAccount']>
+    > & {},
+  ) {
+    const batchSize = 10;
+
+    const successful: { guestId: string; messageId: string }[] = [];
+    const failed: string[] = [];
+    const uncertain: string[] = [];
+
+    for (let i = 0; i < campaign.guests.length; i += batchSize) {
+      const batch = campaign.guests.slice(i, i + batchSize);
+
+      const results = await Promise.allSettled(
+        batch.map(async (recipient) => {
+          const messageId = await this.meta.sendTemplateMessage(
+            account.phoneNumberId,
+            account.token,
+            recipient.guest.phoneNumber,
+            campaign.templateName,
+            campaign.templateLanguage,
+          );
+
+          return {
+            guestId: recipient.guest.id,
+            messageId,
+          };
+        }),
+      );
+
+      const updates = [];
+
+      for (let j = 0; j < results.length; j++) {
+        const result = results[j];
+        const guestId = batch[j].guest.id;
+
+        if (result.status === 'fulfilled') {
+          successful.push(result.value);
+
+          updates.push(
+            this.prisma.broadcastCampaignGuest.update({
+              where: {
+                campaignId_guestId: {
+                  campaignId: campaign.id,
+                  guestId,
+                },
+              },
+              data: {
+                messageId: result.value.messageId,
+                status: BroadcastGuestStatus.PENDING,
+              },
+            }),
+          );
+        } else {
+          const error: unknown = result.reason;
+
+          if (
+            error instanceof HttpResponseError &&
+            error.status >= 400 &&
+            error.status < 500
+          ) {
+            failed.push(guestId);
+
+            updates.push(
+              this.prisma.broadcastCampaignGuest.update({
+                where: {
+                  campaignId_guestId: {
+                    campaignId: campaign.id,
+                    guestId,
+                  },
+                },
+                data: {
+                  status: BroadcastGuestStatus.FAILED,
+                },
+              }),
+            );
+          } else {
+            uncertain.push(guestId);
+          }
+        }
+      }
+
+      if (updates.length) {
+        await this.prisma.$transaction(updates);
+      }
+    }
+
+    return {
+      campaignId: campaign.id,
+      accepted: successful.length,
+      failed: failed.length,
+      uncertain: uncertain.length,
+    };
   }
 }

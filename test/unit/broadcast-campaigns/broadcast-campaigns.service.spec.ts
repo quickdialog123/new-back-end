@@ -87,6 +87,121 @@ describe('BroadcastCampaignsService', () => {
     );
   });
 
+  it('finds a campaign within the authenticated hotel and rejects missing campaigns', async () => {
+    const campaign = { id: 'campaign-1', hotelId: 'hotel-1', guests: [] };
+    const findFirst = vi.fn().mockResolvedValueOnce(campaign).mockResolvedValueOnce(null);
+    const service = new BroadcastCampaignsService(
+      { broadcastCampaign: { findFirst } } as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(service.findOne('hotel-1', 'campaign-1')).resolves.toBe(campaign);
+    await expect(service.findOne('hotel-1', 'missing')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(findFirst).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ where: { id: 'campaign-1', hotelId: 'hotel-1' } }),
+    );
+  });
+
+  it('updates draft campaign fields and guest selection transactionally', async () => {
+    const updated = { id: 'campaign-1', name: 'Updated', guests: [] };
+    const tx = {
+      broadcastCampaign: {
+        findFirst: vi.fn().mockResolvedValueOnce({ id: 'campaign-1', status: 'DRAFT' }).mockResolvedValueOnce(updated),
+        update: vi.fn().mockResolvedValue(undefined),
+      },
+      broadcastCampaignGuest: {
+        deleteMany: vi.fn().mockResolvedValue(undefined),
+        createMany: vi.fn().mockResolvedValue(undefined),
+      },
+    };
+    const count = vi.fn().mockResolvedValue(2);
+    const transaction = vi.fn((callback: (client: typeof tx) => unknown) => callback(tx));
+    const service = new BroadcastCampaignsService(
+      { guest: { count }, $transaction: transaction } as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(
+      service.update('hotel-1', 'campaign-1', {
+        name: 'Updated',
+        guestIds: ['guest-1', 'guest-2'],
+      }),
+    ).resolves.toBe(updated);
+
+    expect(count).toHaveBeenCalledWith({
+      where: { hotelId: 'hotel-1', id: { in: ['guest-1', 'guest-2'] } },
+    });
+    expect(tx.broadcastCampaignGuest.deleteMany).toHaveBeenCalledWith({
+      where: { campaignId: 'campaign-1' },
+    });
+    expect(tx.broadcastCampaignGuest.createMany).toHaveBeenCalledWith({
+      data: [
+        { campaignId: 'campaign-1', guestId: 'guest-1' },
+        { campaignId: 'campaign-1', guestId: 'guest-2' },
+      ],
+    });
+    expect(tx.broadcastCampaign.update).toHaveBeenCalledWith({
+      where: { id: 'campaign-1' },
+      data: { name: 'Updated' },
+    });
+  });
+
+  it('rejects updates when the campaign is missing or is no longer a draft', async () => {
+    const findFirst = vi
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'campaign-1', status: 'SENDING' });
+    const transaction = vi.fn((callback: (client: unknown) => unknown) =>
+      callback({ broadcastCampaign: { findFirst } }),
+    );
+    const service = new BroadcastCampaignsService(
+      { $transaction: transaction } as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(service.update('hotel-1', 'missing', {})).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    await expect(
+      service.update('hotel-1', 'campaign-1', {}),
+    ).rejects.toThrow('Only draft campaigns can be updated');
+  });
+
+  it('removes only draft campaigns and rejects missing or changed campaigns', async () => {
+    const findFirst = vi
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ status: 'SENDING' })
+      .mockResolvedValueOnce({ status: 'DRAFT' })
+      .mockResolvedValueOnce({ status: 'DRAFT' });
+    const deleteMany = vi
+      .fn()
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 1 });
+    const service = new BroadcastCampaignsService(
+      { broadcastCampaign: { findFirst, deleteMany } } as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(service.remove('hotel-1', 'missing')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    await expect(service.remove('hotel-1', 'sending')).rejects.toThrow(
+      'Only draft campaigns can be deleted',
+    );
+    await expect(service.remove('hotel-1', 'changed')).rejects.toThrow(
+      'Campaign status changed and it can no longer be deleted',
+    );
+    await expect(service.remove('hotel-1', 'draft')).resolves.toBeUndefined();
+  });
+
   it('starts a draft campaign using each selected guest ID and the existing Meta sender', async () => {
     const key = Buffer.alloc(32, 4).toString('base64');
     const campaign = {
@@ -119,7 +234,18 @@ describe('BroadcastCampaignsService', () => {
         Promise.all(operations),
       ),
     };
-    const meta = { sendTemplateMessage: vi.fn().mockResolvedValue('wamid-1') };
+    const meta = {
+      findTemplate: vi.fn().mockResolvedValue({
+        data: [
+          {
+            name: 'summer_offer',
+            language: 'en_US',
+            status: 'APPROVED',
+          },
+        ],
+      }),
+      sendTemplateMessage: vi.fn().mockResolvedValue('wamid-1'),
+    };
     const config = { getOrThrow: vi.fn().mockReturnValue(key) };
     const service = new BroadcastCampaignsService(
       prisma as never,
@@ -136,11 +262,13 @@ describe('BroadcastCampaignsService', () => {
       'summer_offer',
       'en_US',
     );
-    expect(guestUpdate).toHaveBeenCalledWith({
-      where: {
-        campaignId_guestId: { campaignId: 'campaign-1', guestId: 'guest-1' },
-      },
-      data: { messageId: 'wamid-1' },
+    await vi.waitFor(() => {
+      expect(guestUpdate).toHaveBeenCalledWith({
+        where: {
+          campaignId_guestId: { campaignId: 'campaign-1', guestId: 'guest-1' },
+        },
+        data: { messageId: 'wamid-1', status: 'PENDING' },
+      });
     });
   });
 });

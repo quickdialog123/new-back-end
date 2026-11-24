@@ -11,8 +11,11 @@ CREATE TABLE "BroadcastCampaign" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
+    CONSTRAINT "BroadcastCampaign_hotelId_fkey" FOREIGN KEY ("hotelId") REFERENCES "Hotel"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "BroadcastCampaign_pkey" PRIMARY KEY ("id")
 );
+
+CREATE INDEX "BroadcastCampaign_hotelId_idx" ON "BroadcastCampaign"("hotelId");
 
 CREATE TABLE "BroadcastCampaignGuest" (
     "campaignId" TEXT NOT NULL,
