@@ -26,6 +26,7 @@ const campaignSelect = {
   templateName: true,
   templateLanguage: true,
   status: true,
+  productRetailerIds: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -67,6 +68,7 @@ export class BroadcastCampaignsService {
         name: input.name,
         templateName: input.templateName,
         templateLanguage: input.templateLanguage,
+        productRetailerIds: input.productRetailerIds ?? [],
         status: BroadcastCampaignStatus.DRAFT,
         guests: {
           create: guestIds.map((guestId) => ({
@@ -90,6 +92,7 @@ export class BroadcastCampaignsService {
     return campaigns.map(({ _count, ...campaign }) => ({
       ...campaign,
       guestCount: _count.guests,
+      productCount: campaign.productRetailerIds.length,
     }));
   }
 

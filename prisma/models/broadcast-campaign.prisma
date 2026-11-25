@@ -6,8 +6,9 @@ model BroadcastCampaign {
   templateLanguage String
   status           BroadcastCampaignStatus @default(DRAFT)
 
-  hotel   Hotel                     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  guests  BroadcastCampaignGuest[]
+  hotel              Hotel                     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  guests             BroadcastCampaignGuest[]
+  productRetailerIds String[]                  @default([])
 
   @@index([hotelId])
 

@@ -11,6 +11,14 @@ export const broadcastCampaignRequestSwaggerSchema = {
       uniqueItems: true,
       items: { type: 'string', format: 'uuid' },
     },
+    productRetailerIds: {
+      type: 'array',
+      maxItems: 100,
+      uniqueItems: true,
+      items: { type: 'string', minLength: 1, maxLength: 100 },
+      description:
+        'Ordered Meta catalog retailer IDs; array order defines position.',
+    },
   },
 };
 
@@ -28,6 +36,7 @@ export const broadcastCampaignResponseSwaggerSchema = {
     'name',
     'templateName',
     'templateLanguage',
+    'productRetailerIds',
     'status',
     'createdAt',
     'updatedAt',
@@ -38,6 +47,11 @@ export const broadcastCampaignResponseSwaggerSchema = {
     name: { type: 'string' },
     templateName: { type: 'string' },
     templateLanguage: { type: 'string' },
+    productRetailerIds: {
+      type: 'array',
+      uniqueItems: true,
+      items: { type: 'string' },
+    },
     status: {
       type: 'string',
       enum: ['DRAFT', 'SENDING', 'COMPLETED', 'FAILED', 'CANCELLED'],
@@ -45,6 +59,7 @@ export const broadcastCampaignResponseSwaggerSchema = {
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },
     guestCount: { type: 'integer' },
+    productCount: { type: 'integer' },
     guests: {
       type: 'array',
       items: {

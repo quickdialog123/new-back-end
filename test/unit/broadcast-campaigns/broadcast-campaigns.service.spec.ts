@@ -24,6 +24,7 @@ describe('BroadcastCampaignsService', () => {
         templateName: 'summer_offer',
         templateLanguage: 'en_US',
         guestIds: ['guest-1'],
+        productRetailerIds: ['retailer-2', 'retailer-1'],
       }),
     ).resolves.toBe(created);
 
@@ -41,6 +42,7 @@ describe('BroadcastCampaignsService', () => {
               },
             ],
           },
+          productRetailerIds: ['retailer-2', 'retailer-1'],
         }),
       }),
     );
@@ -70,9 +72,13 @@ describe('BroadcastCampaignsService', () => {
   });
 
   it('lists only campaigns belonging to the authenticated hotel', async () => {
-    const findMany = vi
-      .fn()
-      .mockResolvedValue([{ id: 'campaign-1', _count: { guests: 3 } }]);
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        id: 'campaign-1',
+        productRetailerIds: ['retailer-a', 'retailer-b'],
+        _count: { guests: 3 },
+      },
+    ]);
     const service = new BroadcastCampaignsService(
       { broadcastCampaign: { findMany } } as never,
       {} as never,
@@ -80,7 +86,12 @@ describe('BroadcastCampaignsService', () => {
     );
 
     await expect(service.findAll('hotel-1')).resolves.toEqual([
-      { id: 'campaign-1', guestCount: 3 },
+      {
+        id: 'campaign-1',
+        productRetailerIds: ['retailer-a', 'retailer-b'],
+        guestCount: 3,
+        productCount: 2,
+      },
     ]);
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { hotelId: 'hotel-1' } }),
@@ -89,20 +100,27 @@ describe('BroadcastCampaignsService', () => {
 
   it('finds a campaign within the authenticated hotel and rejects missing campaigns', async () => {
     const campaign = { id: 'campaign-1', hotelId: 'hotel-1', guests: [] };
-    const findFirst = vi.fn().mockResolvedValueOnce(campaign).mockResolvedValueOnce(null);
+    const findFirst = vi
+      .fn()
+      .mockResolvedValueOnce(campaign)
+      .mockResolvedValueOnce(null);
     const service = new BroadcastCampaignsService(
       { broadcastCampaign: { findFirst } } as never,
       {} as never,
       {} as never,
     );
 
-    await expect(service.findOne('hotel-1', 'campaign-1')).resolves.toBe(campaign);
+    await expect(service.findOne('hotel-1', 'campaign-1')).resolves.toBe(
+      campaign,
+    );
     await expect(service.findOne('hotel-1', 'missing')).rejects.toBeInstanceOf(
       NotFoundException,
     );
     expect(findFirst).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ where: { id: 'campaign-1', hotelId: 'hotel-1' } }),
+      expect.objectContaining({
+        where: { id: 'campaign-1', hotelId: 'hotel-1' },
+      }),
     );
   });
 
@@ -110,7 +128,10 @@ describe('BroadcastCampaignsService', () => {
     const updated = { id: 'campaign-1', name: 'Updated', guests: [] };
     const tx = {
       broadcastCampaign: {
-        findFirst: vi.fn().mockResolvedValueOnce({ id: 'campaign-1', status: 'DRAFT' }).mockResolvedValueOnce(updated),
+        findFirst: vi
+          .fn()
+          .mockResolvedValueOnce({ id: 'campaign-1', status: 'DRAFT' })
+          .mockResolvedValueOnce(updated),
         update: vi.fn().mockResolvedValue(undefined),
       },
       broadcastCampaignGuest: {
@@ -119,7 +140,9 @@ describe('BroadcastCampaignsService', () => {
       },
     };
     const count = vi.fn().mockResolvedValue(2);
-    const transaction = vi.fn((callback: (client: typeof tx) => unknown) => callback(tx));
+    const transaction = vi.fn((callback: (client: typeof tx) => unknown) =>
+      callback(tx),
+    );
     const service = new BroadcastCampaignsService(
       { guest: { count }, $transaction: transaction } as never,
       {} as never,
@@ -130,6 +153,7 @@ describe('BroadcastCampaignsService', () => {
       service.update('hotel-1', 'campaign-1', {
         name: 'Updated',
         guestIds: ['guest-1', 'guest-2'],
+        productRetailerIds: ['retailer-z', 'retailer-a'],
       }),
     ).resolves.toBe(updated);
 
@@ -147,7 +171,10 @@ describe('BroadcastCampaignsService', () => {
     });
     expect(tx.broadcastCampaign.update).toHaveBeenCalledWith({
       where: { id: 'campaign-1' },
-      data: { name: 'Updated' },
+      data: {
+        name: 'Updated',
+        productRetailerIds: ['retailer-z', 'retailer-a'],
+      },
     });
   });
 
@@ -165,12 +192,12 @@ describe('BroadcastCampaignsService', () => {
       {} as never,
     );
 
-    await expect(service.update('hotel-1', 'missing', {})).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
     await expect(
-      service.update('hotel-1', 'campaign-1', {}),
-    ).rejects.toThrow('Only draft campaigns can be updated');
+      service.update('hotel-1', 'missing', {}),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.update('hotel-1', 'campaign-1', {})).rejects.toThrow(
+      'Only draft campaigns can be updated',
+    );
   });
 
   it('removes only draft campaigns and rejects missing or changed campaigns', async () => {

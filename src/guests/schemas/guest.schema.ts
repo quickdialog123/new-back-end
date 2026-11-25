@@ -5,6 +5,7 @@ const guestFields = {
   lastName: z.string().trim().max(100),
   email: z.string().trim().email().optional(),
   phoneNumber: z.string().trim().min(1).max(32),
+  marketingConsent: z.boolean(),
   address: z.string().trim().optional(),
   checkInDate: z.iso
     .date()
@@ -17,7 +18,7 @@ const guestFields = {
 };
 
 export const createGuestSchema = z
-  .object(guestFields)
+  .object({ ...guestFields, marketingConsent: z.boolean().default(false) })
   .refine((guest) => guest.checkOutDate > guest.checkInDate, {
     message: 'Check-out date must be after check-in date',
     path: ['checkOutDate'],
@@ -40,6 +41,7 @@ export const updateGuestSchema = z
     lastName: guestFields.lastName.optional(),
     email: guestFields.email,
     phoneNumber: guestFields.phoneNumber.optional(),
+    marketingConsent: guestFields.marketingConsent.optional(),
     address: guestFields.address,
     checkInDate: guestFields.checkInDate.optional(),
     checkOutDate: guestFields.checkOutDate.optional(),

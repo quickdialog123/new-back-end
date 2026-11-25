@@ -18,6 +18,29 @@ describe('broadcast campaign schemas', () => {
     );
   });
 
+  it('accepts unique ordered product retailer IDs on create and update', () => {
+    const productRetailerIds = ['retailer-2', 'retailer-1'];
+
+    expect(
+      createBroadcastCampaignSchema.safeParse({
+        ...validCampaign,
+        productRetailerIds,
+      }).success,
+    ).toBe(true);
+    expect(
+      updateBroadcastCampaignSchema.safeParse({ productRetailerIds }).success,
+    ).toBe(true);
+  });
+
+  it('rejects duplicate product retailer IDs', () => {
+    expect(
+      createBroadcastCampaignSchema.safeParse({
+        ...validCampaign,
+        productRetailerIds: ['same-product', 'same-product'],
+      }).success,
+    ).toBe(false);
+  });
+
   it('accepts a draft campaign before guests are selected', () => {
     expect(
       createBroadcastCampaignSchema.safeParse({

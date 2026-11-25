@@ -6,12 +6,19 @@ const guestIdsSchema = z
   .refine((ids) => new Set(ids).size === ids.length, {
     message: 'Guest IDs must be unique',
   });
+const productRetailerIdsSchema = z
+  .array(z.string().trim().min(1).max(100))
+  .max(100)
+  .refine((ids) => new Set(ids).size === ids.length, {
+    message: 'Product retailer IDs must be unique',
+  });
 
 const campaignFields = {
   name: z.string().trim().min(1).max(120),
   templateName: z.string().regex(/^[a-z0-9_]+$/),
   templateLanguage: z.string().regex(/^[a-z]{2,3}(?:_[A-Z]{2})?$/),
   guestIds: guestIdsSchema.optional(),
+  productRetailerIds: productRetailerIdsSchema.optional(),
 };
 
 export const createBroadcastCampaignSchema = z.object(campaignFields);
@@ -25,6 +32,7 @@ export const updateBroadcastCampaignSchema = z
     templateName: campaignFields.templateName.optional(),
     templateLanguage: campaignFields.templateLanguage.optional(),
     guestIds: campaignFields.guestIds.optional(),
+    productRetailerIds: campaignFields.productRetailerIds.optional(),
   })
   .refine(
     (input) => Object.values(input).some((value) => value !== undefined),
