@@ -25,11 +25,47 @@ describe('TemplatesService', () => {
     });
     expect(prisma.whatsAppAccount.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { hotelId: 'hotel-1', status: 'CONNECTED', accessTokenEncrypted: { not: null } } }));
     expect(meta.createTemplate).toHaveBeenCalledWith('waba-1', 'secret-token', {
-      name: 'welcome', category: 'UTILITY', language: 'en_GB',
-      components: [{ type: 'BODY', text: 'Hi {{1}}', example: { body_text: [['Amelia']] } }],
+      name: 'welcome', category: 'UTILITY', language: 'en_GB', parameter_format: 'NAMED',
+      components: [{ type: 'BODY', text: 'Hi {{firstname}}', example: { body_text_named_params: [{ param_name: 'firstname', example: 'Amelia' }] } }],
     });
     expect(result.status).toBe('PENDING');
-    expect(result).toMatchObject({ body: 'Hi {{1}}', broadcastEligible: false, buttons: [] });
+    expect(result).toMatchObject({ body: 'Hi {{firstname}}', broadcastEligible: false, buttons: [] });
+  });
+
+  it('accepts named variables in catalog templates and rejects numbered variables', async () => {
+    const input = { name: 'catalog_offer', category: 'MARKETING', language: 'en_US', variableType: 'NAME',
+      header: null, body: 'Hello {{guest_name}}', footer: null,
+      buttons: [{ type: 'CATALOG', text: 'View catalog' }], sampleValues: { guest_name: 'Amelia' } };
+    expect(templateInputSchema.safeParse(input).success).toBe(true);
+    expect(templateInputSchema.safeParse({ ...input, body: 'Hello {{1}}', sampleValues: { '1': 'Amelia' } }).success).toBe(false);
+    expect(templateInputSchema.safeParse({ ...input, variableType: 'NUMBER' }).success).toBe(false);
+    meta.createTemplate.mockResolvedValueOnce({ id: 'catalog-1', status: 'PENDING', category: 'MARKETING' });
+    await service.create('hotel-1', templateInputSchema.parse(input));
+    expect(meta.createTemplate).toHaveBeenLastCalledWith('waba-1', 'secret-token', {
+      name: 'catalog_offer', category: 'MARKETING', language: 'en_US', parameter_format: 'NAMED',
+      components: [
+        { type: 'BODY', text: 'Hello {{guest_name}}', example: { body_text_named_params: [{ param_name: 'guest_name', example: 'Amelia' }] } },
+        { type: 'BUTTONS', buttons: [{ type: 'CATALOG', text: 'View catalog' }] },
+      ],
+    });
+  });
+
+  it('submits a multi-product catalog with a named header variable', async () => {
+    const input = templateInputSchema.parse({
+      name: 'new_collection', category: 'MARKETING', language: 'en_US', variableType: 'NAME',
+      header: { type: 'TEXT', text: 'New {{season}} arrivals' }, body: 'Explore our collection',
+      footer: null, buttons: [{ type: 'MPM', text: 'View items' }], sampleValues: { season: 'winter' },
+    });
+    meta.createTemplate.mockResolvedValueOnce({ id: 'mpm-1', status: 'PENDING', category: 'MARKETING' });
+    await service.create('hotel-1', input);
+    expect(meta.createTemplate).toHaveBeenLastCalledWith('waba-1', 'secret-token', {
+      name: 'new_collection', category: 'MARKETING', language: 'en_US', parameter_format: 'NAMED',
+      components: [
+        { type: 'HEADER', format: 'TEXT', text: 'New {{season}} arrivals', example: { header_text_named_params: [{ param_name: 'season', example: 'winter' }] } },
+        { type: 'BODY', text: 'Explore our collection' },
+        { type: 'BUTTONS', buttons: [{ type: 'MPM', text: 'View items' }] },
+      ],
+    });
   });
 
   it('submits a multi-product marketing template with an MPM button', async () => {

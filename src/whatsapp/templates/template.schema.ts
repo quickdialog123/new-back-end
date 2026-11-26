@@ -17,6 +17,7 @@ const button = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('CATALOG'), text: z.literal('View catalog') }),
   z.object({ type: z.literal('MPM'), text: z.literal('View items') }),
+  z.object({ type: z.literal('MPM'), text: z.literal('View items') }),
 ]);
 
 const header = z.discriminatedUnion('type', [
@@ -43,6 +44,7 @@ export const templateInputSchema = z
     name: z.string().regex(/^[a-z0-9_]+$/),
     category: z.enum(['MARKETING', 'UTILITY', 'AUTHENTICATION']),
     language: z.string().regex(/^[a-z]{2,3}(?:_[A-Z]{2})?$/),
+    variableType: z.literal('NAME').optional(),
     header: header.nullable(),
     body: z.string().trim().min(1).max(1024),
     footer: z.string().trim().max(60).nullable(),
@@ -102,6 +104,8 @@ export const templateInputSchema = z
       ).matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g),
     ].map((match) => match[1]);
     const used = new Set(placeholders);
+    if (placeholders.some((name) => !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)))
+      context.addIssue({ code: 'custom', path: ['body'], message: 'Use named variables such as {{guest_name}}' });
     for (const variable of placeholders)
       if (!value.sampleValues?.[variable])
         context.addIssue({
