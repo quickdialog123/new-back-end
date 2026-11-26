@@ -26,14 +26,8 @@ export type CreateBroadcastCampaignDTO = z.infer<
   typeof createBroadcastCampaignSchema
 >;
 
-export const updateBroadcastCampaignSchema = z
-  .object({
-    name: campaignFields.name.optional(),
-    templateName: campaignFields.templateName.optional(),
-    templateLanguage: campaignFields.templateLanguage.optional(),
-    guestIds: campaignFields.guestIds.optional(),
-    productRetailerIds: campaignFields.productRetailerIds.optional(),
-  })
+export const updateBroadcastCampaignSchema = createBroadcastCampaignSchema
+  .partial()
   .refine(
     (input) => Object.values(input).some((value) => value !== undefined),
     {

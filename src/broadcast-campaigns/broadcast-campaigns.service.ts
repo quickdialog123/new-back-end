@@ -192,10 +192,6 @@ export class BroadcastCampaignsService {
 
     const account = await this.getConnectedWhatsAppAccount(hotelId, true);
 
-    if (!account) {
-      throw new ConflictException('Connected WhatsApp account is required');
-    }
-
     // Find the selected template directly
     const result = await this.meta.findTemplate(
       account.wabaId,
@@ -240,10 +236,6 @@ export class BroadcastCampaignsService {
     }
 
     const account = await this.getConnectedWhatsAppAccount(hotelId);
-
-    if (!account) {
-      throw new ConflictException('WhatsApp account not connected');
-    }
 
     const isValid = await this.meta.findTemplate(
       account.wabaId,
@@ -326,7 +318,17 @@ export class BroadcastCampaignsService {
       },
     });
 
-    if (!account?.accessTokenEncrypted) return null;
+    if (!account) {
+      throw new NotFoundException(
+        'No connected WhatsApp account found for this hotel',
+      );
+    }
+
+    if (!account.accessTokenEncrypted) {
+      throw new NotFoundException(
+        'No connected WhatsApp account with a valid access token found for this hotel',
+      );
+    }
 
     const tokenKey = this.config.getOrThrow<string>('meta.tokenEncryptionKey');
     return {
@@ -339,7 +341,7 @@ export class BroadcastCampaignsService {
     campaign: Awaited<ReturnType<BroadcastCampaignsService['findOne']>>,
     account: Awaited<
       ReturnType<BroadcastCampaignsService['getConnectedWhatsAppAccount']>
-    > & {},
+    >,
   ) {
     const batchSize = 10;
 
