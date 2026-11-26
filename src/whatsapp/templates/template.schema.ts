@@ -17,7 +17,6 @@ const button = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('CATALOG'), text: z.literal('View catalog') }),
   z.object({ type: z.literal('MPM'), text: z.literal('View items') }),
-  z.object({ type: z.literal('MPM'), text: z.literal('View items') }),
 ]);
 
 const header = z.discriminatedUnion('type', [

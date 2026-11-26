@@ -79,7 +79,7 @@ describe('TemplatesService', () => {
       buttons: [{ type: 'MPM', text: 'View items' }], status: 'PENDING',
     });
     expect(meta.createTemplate).toHaveBeenLastCalledWith('waba-1', 'secret-token', {
-      name: 'new_collection', category: 'MARKETING', language: 'en_US',
+      name: 'new_collection', category: 'MARKETING', language: 'en_US', parameter_format: 'NAMED',
       components: [
         { type: 'HEADER', format: 'TEXT', text: 'New arrivals' },
         { type: 'BODY', text: 'Explore our collection' },
