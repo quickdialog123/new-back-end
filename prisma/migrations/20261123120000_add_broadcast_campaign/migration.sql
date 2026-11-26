@@ -21,7 +21,7 @@ CREATE TABLE "BroadcastCampaignGuest" (
     "campaignId" TEXT NOT NULL,
     "guestId" TEXT NOT NULL,
     "messageId" TEXT DEFAULT NULL,
-    "status" "BroadcastGuestStatus" DEFAULT NULL,
+    "status" "BroadcastGuestStatus" DEFAULT PENDING,
 
     CONSTRAINT "BroadcastCampaignGuest_pkey" PRIMARY KEY ("campaignId", "guestId")
 );

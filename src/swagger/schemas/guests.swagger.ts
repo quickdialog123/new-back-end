@@ -44,6 +44,20 @@ export const bulkCreateGuestsRequestSwaggerSchema = {
   },
 };
 
+export const bulkDeleteGuestsRequestSwaggerSchema = {
+  type: 'object',
+  required: ['ids'],
+  properties: {
+    ids: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 500,
+      uniqueItems: true,
+      items: { type: 'string', format: 'uuid' },
+    },
+  },
+};
+
 export const guestResponseSwaggerSchema = {
   type: 'object',
   required: [

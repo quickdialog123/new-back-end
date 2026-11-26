@@ -108,3 +108,66 @@ export const availableCatalogsSwaggerSchema = {
   type: 'array',
   items: catalogSwaggerSchema,
 };
+
+export const productSwaggerSchema = {
+  type: 'object',
+  required: [
+    'productId',
+    'name',
+    'description',
+    'productUrl',
+    'imageUrl',
+    'availability',
+    'price',
+    'currency',
+    'brand',
+    'condition',
+  ],
+  properties: {
+    productId: { type: 'string' },
+    name: { type: 'string' },
+    description: { type: 'string', nullable: true },
+    productUrl: { type: 'string', nullable: true },
+    imageUrl: { type: 'string', nullable: true },
+    availability: { type: 'string', nullable: true },
+    price: { type: 'string', nullable: true },
+    currency: { type: 'string', nullable: true },
+    brand: { type: 'string', nullable: true },
+    condition: { type: 'string', nullable: true },
+  },
+};
+
+export const productPageSwaggerSchema = {
+  type: 'object',
+  required: ['data', 'paging'],
+  properties: {
+    data: { type: 'array', items: productSwaggerSchema },
+    paging: { type: 'object', nullable: true },
+  },
+};
+
+export const productBatchResponseSwaggerSchema = {
+  type: 'object',
+  required: ['handle', 'status', 'errors', 'warnings'],
+  properties: {
+    productId: { type: 'string', nullable: true },
+    handle: { type: 'string' },
+    status: { type: 'string' },
+    errors: { type: 'array', items: { type: 'object' } },
+    warnings: { type: 'array', items: { type: 'object' } },
+    products: { type: 'array', items: productSwaggerSchema },
+    paging: { type: 'object', nullable: true },
+  },
+};
+
+export const catalogOperationStatusSwaggerSchema = {
+  type: 'object',
+  required: ['handle', 'status', 'errors', 'warnings'],
+  properties: {
+    handle: { type: 'string' },
+    status: { type: 'string' },
+    errors: { type: 'array', items: { type: 'object' } },
+    warnings: { type: 'array', items: { type: 'object' } },
+    products: { type: 'array', items: productSwaggerSchema },
+  },
+};
