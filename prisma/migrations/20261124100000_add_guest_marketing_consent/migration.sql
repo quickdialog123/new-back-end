@@ -1,2 +1,0 @@
-ALTER TABLE "Guest"
-ADD COLUMN "marketingConsent" BOOLEAN NOT NULL DEFAULT false;
