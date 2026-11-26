@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
+import { HttpResponseError } from '@nestjs/http-client';
 import { encryptMetaToken } from '@quickdialog/whatsapp/meta/meta-token.util.js';
 import { BroadcastCampaignsService } from '@quickdialog/broadcast-campaigns/broadcast-campaigns.service.js';
 
@@ -178,6 +183,38 @@ describe('BroadcastCampaignsService', () => {
     });
   });
 
+  it('clears the selected guests when updated with an empty guest ID list', async () => {
+    const tx = {
+      broadcastCampaign: {
+        findFirst: vi
+          .fn()
+          .mockResolvedValueOnce({ id: 'campaign-1', status: 'DRAFT' })
+          .mockResolvedValueOnce({ id: 'campaign-1', guests: [] }),
+        update: vi.fn(),
+      },
+      broadcastCampaignGuest: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 2 }),
+        createMany: vi.fn(),
+      },
+    };
+    const service = new BroadcastCampaignsService(
+      {
+        $transaction: vi.fn((callback: (client: typeof tx) => unknown) =>
+          callback(tx),
+        ),
+      } as never,
+      {} as never,
+      {} as never,
+    );
+
+    await service.update('hotel-1', 'campaign-1', { guestIds: [] });
+
+    expect(tx.broadcastCampaignGuest.deleteMany).toHaveBeenCalledWith({
+      where: { campaignId: 'campaign-1' },
+    });
+    expect(tx.broadcastCampaignGuest.createMany).not.toHaveBeenCalled();
+  });
+
   it('rejects updates when the campaign is missing or is no longer a draft', async () => {
     const findFirst = vi
       .fn()
@@ -227,6 +264,92 @@ describe('BroadcastCampaignsService', () => {
       'Campaign status changed and it can no longer be deleted',
     );
     await expect(service.remove('hotel-1', 'draft')).resolves.toBeUndefined();
+  });
+
+  it('previews the approved template for the campaign', async () => {
+    const key = Buffer.alloc(32, 4).toString('base64');
+    const campaign = {
+      id: 'campaign-1',
+      templateName: 'summer_offer',
+      templateLanguage: 'en_US',
+    };
+    const template = {
+      id: 'template-1',
+      name: 'summer_offer',
+      language: 'en_US',
+      category: 'MARKETING',
+      status: 'APPROVED',
+      components: [{ type: 'BODY', text: 'Hello!' }],
+    };
+    const prisma = {
+      broadcastCampaign: { findFirst: vi.fn().mockResolvedValue(campaign) },
+      whatsAppAccount: {
+        findFirst: vi.fn().mockResolvedValue({
+          wabaId: 'waba-1',
+          phoneNumberId: 'phone-id',
+          accessTokenEncrypted: encryptMetaToken('access-token', key),
+        }),
+      },
+    };
+    const meta = {
+      findTemplate: vi.fn().mockResolvedValue({ data: [template] }),
+    };
+    const service = new BroadcastCampaignsService(
+      prisma as never,
+      { getOrThrow: vi.fn().mockReturnValue(key) } as never,
+      meta as never,
+    );
+
+    await expect(service.preview('hotel-1', 'campaign-1')).resolves.toEqual({
+      campaignId: 'campaign-1',
+      template,
+    });
+    expect(meta.findTemplate).toHaveBeenCalledWith(
+      'waba-1',
+      'access-token',
+      'summer_offer',
+      'en_US',
+    );
+  });
+
+  it('rejects a campaign preview when Meta no longer has an approved matching template', async () => {
+    const key = Buffer.alloc(32, 4).toString('base64');
+    const prisma = {
+      broadcastCampaign: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'campaign-1',
+          templateName: 'summer_offer',
+          templateLanguage: 'en_US',
+        }),
+      },
+      whatsAppAccount: {
+        findFirst: vi.fn().mockResolvedValue({
+          wabaId: 'waba-1',
+          accessTokenEncrypted: encryptMetaToken('access-token', key),
+        }),
+      },
+    };
+    const meta = {
+      findTemplate: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: 'template-1',
+            name: 'summer_offer',
+            language: 'en_US',
+            status: 'PENDING',
+          },
+        ],
+      }),
+    };
+    const service = new BroadcastCampaignsService(
+      prisma as never,
+      { getOrThrow: vi.fn().mockReturnValue(key) } as never,
+      meta as never,
+    );
+
+    await expect(
+      service.preview('hotel-1', 'campaign-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('starts a draft campaign using each selected guest ID and the existing Meta sender', async () => {
@@ -297,5 +420,192 @@ describe('BroadcastCampaignsService', () => {
         data: { messageId: 'wamid-1', status: 'PENDING' },
       });
     });
+  });
+
+  it('does not start a campaign that is not a draft', async () => {
+    const findFirst = vi.fn().mockResolvedValue({
+      id: 'campaign-1',
+      status: 'SENDING',
+      guests: [{ guest: { id: 'guest-1' } }],
+    });
+    const accountFindFirst = vi.fn();
+    const service = new BroadcastCampaignsService(
+      {
+        broadcastCampaign: { findFirst },
+        whatsAppAccount: { findFirst: accountFindFirst },
+      } as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(service.start('hotel-1', 'campaign-1')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(accountFindFirst).not.toHaveBeenCalled();
+  });
+
+  it('does not start a campaign without selected guests', async () => {
+    const findFirst = vi.fn().mockResolvedValue({
+      id: 'campaign-1',
+      status: 'DRAFT',
+      guests: [],
+    });
+    const accountFindFirst = vi.fn();
+    const service = new BroadcastCampaignsService(
+      {
+        broadcastCampaign: { findFirst },
+        whatsAppAccount: { findFirst: accountFindFirst },
+      } as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(service.start('hotel-1', 'campaign-1')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(accountFindFirst).not.toHaveBeenCalled();
+  });
+
+  it('does not start a campaign when the selected template is not approved', async () => {
+    const key = Buffer.alloc(32, 4).toString('base64');
+    const prisma = {
+      broadcastCampaign: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'campaign-1',
+          hotelId: 'hotel-1',
+          status: 'DRAFT',
+          templateName: 'summer_offer',
+          templateLanguage: 'en_US',
+          guests: [{ guest: { id: 'guest-1', phoneNumber: '+15550102000' } }],
+        }),
+        updateMany: vi.fn(),
+      },
+      whatsAppAccount: {
+        findFirst: vi.fn().mockResolvedValue({
+          phoneNumberId: 'phone-id',
+          accessTokenEncrypted: encryptMetaToken('access-token', key),
+        }),
+      },
+    };
+    const meta = {
+      findTemplate: vi.fn().mockResolvedValue({
+        data: [{ name: 'summer_offer', language: 'en_US', status: 'PENDING' }],
+      }),
+      sendTemplateMessage: vi.fn(),
+    };
+    const service = new BroadcastCampaignsService(
+      prisma as never,
+      { getOrThrow: vi.fn().mockReturnValue(key) } as never,
+      meta as never,
+    );
+
+    await expect(service.start('hotel-1', 'campaign-1')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(prisma.broadcastCampaign.updateMany).not.toHaveBeenCalled();
+    expect(meta.sendTemplateMessage).not.toHaveBeenCalled();
+  });
+
+  it('marks a guest as failed when Meta rejects the send with a client error', async () => {
+    const key = Buffer.alloc(32, 4).toString('base64');
+    const campaign = {
+      id: 'campaign-1',
+      hotelId: 'hotel-1',
+      status: 'DRAFT',
+      templateName: 'summer_offer',
+      templateLanguage: 'en_US',
+      guests: [
+        {
+          status: null,
+          guest: { id: 'guest-1', phoneNumber: '+15550102000' },
+        },
+      ],
+    };
+    const guestUpdate = vi.fn().mockResolvedValue({});
+    const transaction = vi.fn((operations: Promise<unknown>[]) =>
+      Promise.all(operations),
+    );
+    const prisma = {
+      broadcastCampaign: {
+        findFirst: vi.fn().mockResolvedValue(campaign),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      broadcastCampaignGuest: { update: guestUpdate },
+      whatsAppAccount: {
+        findFirst: vi.fn().mockResolvedValue({
+          phoneNumberId: 'phone-id',
+          accessTokenEncrypted: encryptMetaToken('access-token', key),
+        }),
+      },
+      $transaction: transaction,
+    };
+    const meta = {
+      findTemplate: vi.fn().mockResolvedValue({
+        data: [{ name: 'summer_offer', language: 'en_US', status: 'APPROVED' }],
+      }),
+      sendTemplateMessage: vi.fn().mockRejectedValue(
+        new HttpResponseError({
+          method: 'POST',
+          url: 'https://graph.facebook.com/messages',
+          status: 400,
+          body: { error: { message: 'Invalid recipient' } },
+        }),
+      ),
+    };
+    const service = new BroadcastCampaignsService(
+      prisma as never,
+      { getOrThrow: vi.fn().mockReturnValue(key) } as never,
+      meta as never,
+    );
+
+    await expect(service.start('hotel-1', 'campaign-1')).resolves.toEqual({
+      campaignId: 'campaign-1',
+      status: 'SENDING',
+    });
+    await vi.waitFor(() => expect(transaction).toHaveBeenCalledOnce());
+    expect(guestUpdate).toHaveBeenCalledWith({
+      where: {
+        campaignId_guestId: { campaignId: 'campaign-1', guestId: 'guest-1' },
+      },
+      data: { status: 'FAILED' },
+    });
+  });
+
+  it('rejects a concurrent start when the draft campaign was already claimed', async () => {
+    const key = Buffer.alloc(32, 4).toString('base64');
+    const prisma = {
+      broadcastCampaign: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'campaign-1',
+          status: 'DRAFT',
+          templateName: 'summer_offer',
+          templateLanguage: 'en_US',
+          guests: [{ guest: { id: 'guest-1', phoneNumber: '+15550102000' } }],
+        }),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      whatsAppAccount: {
+        findFirst: vi.fn().mockResolvedValue({
+          phoneNumberId: 'phone-id',
+          accessTokenEncrypted: encryptMetaToken('access-token', key),
+        }),
+      },
+    };
+    const meta = {
+      findTemplate: vi.fn().mockResolvedValue({
+        data: [{ name: 'summer_offer', language: 'en_US', status: 'APPROVED' }],
+      }),
+      sendTemplateMessage: vi.fn(),
+    };
+    const service = new BroadcastCampaignsService(
+      prisma as never,
+      { getOrThrow: vi.fn().mockReturnValue(key) } as never,
+      meta as never,
+    );
+
+    await expect(service.start('hotel-1', 'campaign-1')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(meta.sendTemplateMessage).not.toHaveBeenCalled();
   });
 });

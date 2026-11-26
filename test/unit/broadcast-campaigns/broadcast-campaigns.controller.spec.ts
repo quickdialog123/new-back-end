@@ -62,4 +62,39 @@ describe('BroadcastCampaignsController', () => {
     );
     expect(Reflect.getMetadata(HTTP_CODE_METADATA, startHandler)).toBe(200);
   });
+
+  it('delegates detail, update, delete, and preview with the authenticated hotel', async () => {
+    const service = {
+      findOne: vi.fn().mockResolvedValue({ id: 'campaign-id' }),
+      update: vi.fn().mockResolvedValue({ id: 'campaign-id' }),
+      remove: vi.fn().mockResolvedValue(undefined),
+      preview: vi.fn().mockResolvedValue({ campaignId: 'campaign-id' }),
+    };
+    const controller = new BroadcastCampaignsController(service as never);
+    const user = { hotelId: 'hotel-1', role: 'STAFF' };
+    const campaignId = { id: 'campaign-id' };
+    const updateInput = { name: 'Updated offer' };
+
+    await expect(
+      controller.findOne(user as never, campaignId),
+    ).resolves.toEqual({ id: 'campaign-id' });
+    await expect(
+      controller.update(user as never, campaignId, updateInput),
+    ).resolves.toEqual({ id: 'campaign-id' });
+    await expect(
+      controller.remove(user as never, campaignId),
+    ).resolves.toBeUndefined();
+    await expect(
+      controller.preview(user as never, campaignId),
+    ).resolves.toEqual({ campaignId: 'campaign-id' });
+
+    expect(service.findOne).toHaveBeenCalledWith('hotel-1', 'campaign-id');
+    expect(service.update).toHaveBeenCalledWith(
+      'hotel-1',
+      'campaign-id',
+      updateInput,
+    );
+    expect(service.remove).toHaveBeenCalledWith('hotel-1', 'campaign-id');
+    expect(service.preview).toHaveBeenCalledWith('hotel-1', 'campaign-id');
+  });
 });
