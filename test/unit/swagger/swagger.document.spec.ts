@@ -5,10 +5,13 @@ import {
   type NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { SwaggerModule } from '@nestjs/swagger';
+import { PinoLogger } from 'nestjs-pino';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AuthController } from '@quickdialog/auth/auth.controller.js';
 import { AuthService } from '@quickdialog/auth/auth.service.js';
+import { BroadcastCampaignsController } from '@quickdialog/broadcast-campaigns/broadcast-campaigns.controller.js';
+import { BroadcastCampaignsService } from '@quickdialog/broadcast-campaigns/broadcast-campaigns.service.js';
 import { HealthController } from '@quickdialog/health/health.controller.js';
 import { HealthService } from '@quickdialog/health/health.service.js';
 import { GuestsController } from '@quickdialog/guests/guests.controller.js';
@@ -17,6 +20,11 @@ import { EmbeddedSignupController } from '@quickdialog/whatsapp/embedded-signup/
 import { EmbeddedSignupService } from '@quickdialog/whatsapp/embedded-signup/embedded-signup.service.js';
 import { CatalogController } from '@quickdialog/whatsapp/catalog/catalog.controller.js';
 import { CatalogService } from '@quickdialog/whatsapp/catalog/catalog.service.js';
+import { TemplatesController } from '@quickdialog/whatsapp/templates/templates.controller.js';
+import { TemplatesService } from '@quickdialog/whatsapp/templates/templates.service.js';
+import { WebhookController } from '@quickdialog/whatsapp/webhooks/webhook.controller.js';
+import { WebhookService } from '@quickdialog/whatsapp/webhooks/webhook.service.js';
+import { WebhookSignatureGuard } from '@quickdialog/whatsapp/webhooks/webhook-signature.guard.js';
 import { MetaGraphClient } from '@quickdialog/whatsapp/meta/meta-graph.client.js';
 import { WhatsappController } from '@quickdialog/whatsapp/whatsapp.controller.js';
 import { WhatsappService } from '@quickdialog/whatsapp/whatsapp.service.js';
@@ -35,19 +43,33 @@ describe('Swagger API contract', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [
         AuthController,
+        BroadcastCampaignsController,
         HealthController,
         GuestsController,
         WhatsappController,
         EmbeddedSignupController,
         CatalogController,
+        TemplatesController,
+        WebhookController,
       ],
       providers: [
         { provide: AuthService, useValue: {} },
+        { provide: BroadcastCampaignsService, useValue: {} },
         { provide: HealthService, useValue: {} },
         { provide: GuestsService, useValue: {} },
         { provide: WhatsappService, useValue: {} },
         { provide: EmbeddedSignupService, useValue: {} },
         { provide: CatalogService, useValue: {} },
+        { provide: TemplatesService, useValue: {} },
+        { provide: WebhookService, useValue: {} },
+        {
+          provide: WebhookSignatureGuard,
+          useValue: { canActivate: () => true },
+        },
+        {
+          provide: PinoLogger,
+          useValue: { setContext: vi.fn(), warn: vi.fn() },
+        },
         { provide: MetaGraphClient, useValue: {} },
         { provide: ConfigService, useValue: config },
       ],
@@ -233,7 +255,17 @@ describe('Swagger API contract', () => {
     expect(disconnect).toMatchObject({
       tags: ['Whatsapp'],
       summary: 'Disconnect WhatsApp',
-      responses: { 201: status.responses['200'] },
+      responses: {
+        201: {
+          content: {
+            'application/json': {
+              schema: {
+                example: { status: 'NOT_CONNECTED' },
+              },
+            },
+          },
+        },
+      },
     });
     expect(disconnect.responses).toHaveProperty('400');
     expect(complete).toMatchObject({
@@ -307,6 +339,144 @@ describe('Swagger API contract', () => {
       'Bulk delete guests from the authenticated user’s hotel',
     );
     expect(bulkRemove.responses).toHaveProperty('200');
+  });
+
+  it('includes usable examples for the remaining API modules', () => {
+    const get = (path: string) => document.paths[path]!;
+    const requestContent = (operation: { requestBody?: unknown }) => {
+      const requestBody = operation.requestBody;
+      if (
+        !requestBody ||
+        typeof requestBody !== 'object' ||
+        !('content' in requestBody)
+      ) {
+        return undefined;
+      }
+      return (
+        requestBody as {
+          content?: Record<string, { examples?: Record<string, unknown> }>;
+        }
+      ).content;
+    };
+    const responseContent = (
+      operation: { responses: Record<string, unknown> },
+      status: string,
+    ) => {
+      const response = operation.responses[status];
+      if (
+        !response ||
+        typeof response !== 'object' ||
+        !('content' in response)
+      ) {
+        return undefined;
+      }
+      return (
+        response as {
+          content?: Record<
+            string,
+            {
+              schema?: Record<string, unknown>;
+              examples?: Record<string, unknown>;
+            }
+          >;
+        }
+      ).content;
+    };
+    const jsonBodyOperations = [
+      get('/api/guests').post!,
+      get('/api/guests/bulk').post!,
+      get('/api/guests/bulk').delete!,
+      get('/api/guests/{id}').patch!,
+      get('/api/broadcast-campaigns').post!,
+      get('/api/broadcast-campaigns/{id}').patch!,
+      get('/api/whatsapp/embedded-signup/complete').post!,
+      get('/api/whatsapp/register').post!,
+      get('/api/whatsapp/catalogs/connect').post!,
+      get('/api/whatsapp/catalogs/settings').patch!,
+      get('/api/whatsapp/catalogs/{catalogId}/products').post!,
+      get('/api/whatsapp/catalogs/{catalogId}/products/{productId}').patch!,
+      get('/api/whatsapp/templates').post!,
+      get('/api/whatsapp/templates/{id}').patch!,
+      get('/api/whatsapp/webhooks').post!,
+    ];
+
+    for (const operation of jsonBodyOperations) {
+      expect(
+        Object.keys(
+          requestContent(operation)?.['application/json']?.examples ?? {},
+        ),
+      ).not.toHaveLength(0);
+    }
+
+    const templateMediaUpload = get('/api/whatsapp/templates/media').post!;
+    expect(
+      requestContent(templateMediaUpload)?.['image/png']?.examples,
+    ).toHaveProperty('image');
+
+    for (const operation of [
+      get('/api/guests').post!,
+      get('/api/broadcast-campaigns').post!,
+      get('/api/whatsapp/templates').post!,
+    ]) {
+      expect(operation.security).toEqual([{ 'access-token': [] }]);
+    }
+    expect(get('/api/whatsapp/webhooks').post!.security).toBeUndefined();
+
+    const responseExamples = [
+      [get('/api/guests').post!, '201'],
+      [get('/api/guests').get!, '200'],
+      [get('/api/guests/{id}').get!, '200'],
+      [get('/api/guests/{id}').patch!, '200'],
+      [get('/api/guests/bulk').post!, '201'],
+      [get('/api/guests/bulk').delete!, '200'],
+      [get('/api/broadcast-campaigns').post!, '201'],
+      [get('/api/broadcast-campaigns').get!, '200'],
+      [get('/api/broadcast-campaigns/{id}').get!, '200'],
+      [get('/api/broadcast-campaigns/{id}').patch!, '200'],
+      [get('/api/broadcast-campaigns/{id}/preview').post!, '200'],
+      [get('/api/broadcast-campaigns/{id}/start').post!, '200'],
+      [get('/api/whatsapp/status').get!, '200'],
+      [get('/api/whatsapp/disconnect').post!, '201'],
+      [get('/api/whatsapp/embedded-signup/complete').post!, '201'],
+      [get('/api/whatsapp/register').post!, '201'],
+      [get('/api/whatsapp/catalogs/connect').post!, '201'],
+      [get('/api/whatsapp/catalogs/disconnect').post!, '201'],
+      [get('/api/whatsapp/catalogs/connection').get!, '200'],
+      [get('/api/whatsapp/catalogs/available').get!, '200'],
+      [get('/api/whatsapp/catalogs').get!, '200'],
+      [get('/api/whatsapp/catalogs/{catalogId}/products').get!, '200'],
+      [get('/api/whatsapp/catalogs/{catalogId}/products').post!, '202'],
+      [
+        get('/api/whatsapp/catalogs/{catalogId}/products/{productId}').patch!,
+        '202',
+      ],
+      [
+        get('/api/whatsapp/catalogs/{catalogId}/products/{productId}').delete!,
+        '202',
+      ],
+      [
+        get('/api/whatsapp/catalogs/{catalogId}/operations/{handle}').get!,
+        '200',
+      ],
+      [get('/api/whatsapp/templates').get!, '200'],
+      [get('/api/whatsapp/templates').post!, '201'],
+      [get('/api/whatsapp/templates/{id}').get!, '200'],
+      [get('/api/whatsapp/templates/{id}').patch!, '200'],
+      [get('/api/whatsapp/templates/media').post!, '201'],
+      [get('/api/whatsapp/webhooks').post!, '200'],
+      [get('/api/health').get!, '200'],
+    ] as const;
+
+    for (const [operation, status] of responseExamples) {
+      expect(
+        responseContent(operation, status)?.['application/json']?.schema,
+      ).toHaveProperty('example');
+    }
+
+    expect(
+      responseContent(get('/api/whatsapp/webhooks').get!, '200')?.['text/plain']
+        ?.schema,
+    ).toHaveProperty('example');
   });
 
   it('documents protected WhatsApp catalog operations', () => {

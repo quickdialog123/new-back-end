@@ -15,6 +15,7 @@ const guestSelect = {
   lastName: true,
   email: true,
   phoneNumber: true,
+  marketingConsent: true,
   address: true,
   checkInDate: true,
   checkOutDate: true,

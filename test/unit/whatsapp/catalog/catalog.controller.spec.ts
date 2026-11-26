@@ -88,4 +88,48 @@ describe('CatalogController', () => {
       settings,
     );
   });
+
+  it('delegates product and operation requests with their route parameters', async () => {
+    const catalog = { catalogId: 'catalog-id' };
+    const product = { productId: 'product-id', catalogId: 'catalog-id' };
+    const createInput = { name: 'Product' };
+    const updateInput = { name: 'Updated product' };
+    const query = { after: 'cursor-1' };
+
+    await controller.listProducts(owner as never, catalog, query as never);
+    await controller.createProduct(owner as never, catalog, createInput as never);
+    await controller.updateProduct(owner as never, product, updateInput as never);
+    await controller.deleteProduct(owner as never, product);
+    await controller.getOperationStatus(
+      owner as never,
+      { ...catalog, handle: 'handle-1' },
+    );
+
+    expect(catalogService.listProducts).toHaveBeenCalledWith(
+      'hotel-id',
+      'catalog-id',
+      'cursor-1',
+    );
+    expect(catalogService.createProduct).toHaveBeenCalledWith(
+      'hotel-id',
+      'catalog-id',
+      createInput,
+    );
+    expect(catalogService.updateProduct).toHaveBeenCalledWith(
+      'hotel-id',
+      'catalog-id',
+      'product-id',
+      updateInput,
+    );
+    expect(catalogService.deleteProduct).toHaveBeenCalledWith(
+      'hotel-id',
+      'catalog-id',
+      'product-id',
+    );
+    expect(catalogService.getBatchStatus).toHaveBeenCalledWith(
+      'hotel-id',
+      'catalog-id',
+      'handle-1',
+    );
+  });
 });

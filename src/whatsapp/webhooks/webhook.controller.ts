@@ -17,6 +17,10 @@ import type { MetaWebhookPayload } from './webhook.types.js';
 import { ApiTags } from '@nestjs/swagger';
 import { SWAGGER_TAGS } from '@quickdialog/swagger/swagger.tags.js';
 import { WebhookSignatureGuard } from './webhook-signature.guard.js';
+import {
+  ApiReceiveWhatsAppWebhookDocs,
+  ApiVerifyWhatsAppWebhookDocs,
+} from '@quickdialog/swagger/decorators/webhooks.decorator.js';
 
 @Public()
 @SkipOriginCheck()
@@ -27,6 +31,7 @@ export class WebhookController {
 
   @Get()
   @HttpCode(HttpStatus.OK)
+  @ApiVerifyWhatsAppWebhookDocs()
   verify(
     @Query('hub.mode') mode?: string,
     @Query('hub.verify_token')
@@ -40,6 +45,7 @@ export class WebhookController {
   @Post()
   @UseGuards(WebhookSignatureGuard)
   @HttpCode(HttpStatus.OK)
+  @ApiReceiveWhatsAppWebhookDocs()
   receive(@Body() payload: MetaWebhookPayload): { received: true } {
     this.webhookService.receive(payload);
 

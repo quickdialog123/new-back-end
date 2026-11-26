@@ -101,6 +101,32 @@ describe('MetaGraphClient', () => {
     expect(config.getOrThrow).toHaveBeenCalledTimes(3);
   });
 
+  it('sends a template message with the shared JSON and auth options', async () => {
+    post.mockResolvedValueOnce({ data: { messages: [{ id: 'wamid.123' }] } });
+
+    await expect(
+      client.sendTemplateMessage(
+        'phone-id',
+        'access-token',
+        '+15550102000',
+        'summer_offer',
+        'en_US',
+      ),
+    ).resolves.toBe('wamid.123');
+    expect(post).toHaveBeenCalledWith('/v26.0/phone-id/messages', {
+      headers: { authorization: 'Bearer access-token' },
+      json: {
+        messaging_product: 'whatsapp',
+        to: '+15550102000',
+        type: 'template',
+        template: {
+          name: 'summer_offer',
+          language: { code: 'en_US' },
+        },
+      },
+    });
+  });
+
   it('discovers owned and client catalogs for a business', async () => {
     get
       .mockResolvedValueOnce({

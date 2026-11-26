@@ -122,7 +122,7 @@ describe('GlobalExceptionFilter', () => {
     expect(logger.error).not.toHaveBeenCalled();
   });
 
-  it('exposes Meta API error context as details', () => {
+  it('exposes Meta API error context as details with an internal server error status', () => {
     const metaError = {
       message: 'Application does not have permission for this action',
       type: 'OAuthException',
@@ -137,10 +137,11 @@ describe('GlobalExceptionFilter', () => {
     expect(reply).toHaveBeenCalledWith(
       response,
       expect.objectContaining({
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         code: 'META_API_ERROR',
         details: metaError,
       }),
-      HttpStatus.CONFLICT,
+      HttpStatus.INTERNAL_SERVER_ERROR,
     );
   });
 
@@ -161,7 +162,7 @@ describe('GlobalExceptionFilter', () => {
     );
   });
 
-  it('formats Meta Graph API errors from the interceptor as conflicts', () => {
+  it('formats Meta Graph API errors from the interceptor as internal server errors', () => {
     const metaError = {
       message: 'Application does not have permission for this action',
       type: 'OAuthException',
@@ -176,12 +177,12 @@ describe('GlobalExceptionFilter', () => {
     expect(reply).toHaveBeenCalledWith(
       response,
       expect.objectContaining({
-        statusCode: 409,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         code: 'META_API_ERROR',
         message: 'Meta API request failed',
         details: metaError,
       }),
-      409,
+      HttpStatus.INTERNAL_SERVER_ERROR,
     );
     expect(logger.error).not.toHaveBeenCalled();
   });

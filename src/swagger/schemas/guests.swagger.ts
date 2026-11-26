@@ -3,6 +3,7 @@ const guestRequestProperties = {
   lastName: { type: 'string', example: 'Guest' },
   email: { type: 'string', format: 'email', example: 'sam@example.com' },
   phoneNumber: { type: 'string', example: '+1 555 010 0000' },
+  marketingConsent: { type: 'boolean', default: false, example: false },
   address: { type: 'string', example: '42 Example Street' },
   checkInDate: { type: 'string', format: 'date', example: '2026-11-19' },
   checkOutDate: { type: 'string', format: 'date', example: '2026-11-20' },
@@ -43,6 +44,20 @@ export const bulkCreateGuestsRequestSwaggerSchema = {
   },
 };
 
+export const bulkDeleteGuestsRequestSwaggerSchema = {
+  type: 'object',
+  required: ['ids'],
+  properties: {
+    ids: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 500,
+      uniqueItems: true,
+      items: { type: 'string', format: 'uuid' },
+    },
+  },
+};
+
 export const guestResponseSwaggerSchema = {
   type: 'object',
   required: [
@@ -52,6 +67,7 @@ export const guestResponseSwaggerSchema = {
     'lastName',
     'email',
     'phoneNumber',
+    'marketingConsent',
     'address',
     'checkInDate',
     'checkOutDate',
@@ -67,6 +83,7 @@ export const guestResponseSwaggerSchema = {
     lastName: { type: 'string' },
     email: { type: 'string', format: 'email', nullable: true },
     phoneNumber: { type: 'string' },
+    marketingConsent: { type: 'boolean', default: false },
     address: { type: 'string', nullable: true },
     checkInDate: { type: 'string', format: 'date-time' },
     checkOutDate: { type: 'string', format: 'date-time' },

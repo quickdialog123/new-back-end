@@ -88,6 +88,7 @@ describe('Guests HTTP integration', () => {
       firstName: 'Sam',
       lastName: 'Guest',
       phoneNumber: '+1 555 010 0000',
+      marketingConsent: true,
       address: '42 Example Street',
       checkInDate: '2026-11-19',
       checkOutDate: '2026-11-20',
@@ -104,6 +105,7 @@ describe('Guests HTTP integration', () => {
     expect(created.statusCode).toBe(201);
     expect(created.json()).toMatchObject({
       ...guestInput,
+      marketingConsent: true,
       checkInDate: '2026-11-19T00:00:00.000Z',
       checkOutDate: '2026-11-20T00:00:00.000Z',
       hotelId,
@@ -126,6 +128,7 @@ describe('Guests HTTP integration', () => {
     });
     expect(listed.statusCode).toBe(200);
     expect(listed.json()).toHaveLength(1);
+    expect(listed.json()[0].marketingConsent).toBe(true);
 
     const fetched = await app.inject({
       method: 'GET',
@@ -133,6 +136,7 @@ describe('Guests HTTP integration', () => {
       headers: headers(),
     });
     expect(fetched.statusCode).toBe(200);
+    expect(fetched.json().marketingConsent).toBe(true);
 
     const updated = await app.inject({
       method: 'PATCH',
@@ -140,6 +144,7 @@ describe('Guests HTTP integration', () => {
       headers: headers(),
       payload: {
         firstName: 'Sam Updated',
+        marketingConsent: false,
         address: '43 Example Street',
         checkInDate: '2026-11-20',
         checkOutDate: '2026-11-21',
@@ -148,6 +153,7 @@ describe('Guests HTTP integration', () => {
     expect(updated.statusCode).toBe(200);
     expect(updated.json()).toMatchObject({
       firstName: 'Sam Updated',
+      marketingConsent: false,
       address: '43 Example Street',
     });
 
@@ -184,6 +190,7 @@ describe('Guests HTTP integration', () => {
             lastName: 'Guest',
             email: 'first@example.com',
             phoneNumber: '+1 555 010 0001',
+            marketingConsent: true,
             checkInDate: '2026-11-19',
             checkOutDate: '2026-11-20',
             roomNumber: 101,
@@ -209,6 +216,11 @@ describe('Guests HTTP integration', () => {
     const savedGuests = await prisma.guest.findMany({ where: { hotelId } });
     expect(savedGuests).toHaveLength(2);
     expect(savedGuests.every((guest) => guest.hotelId === hotelId)).toBe(true);
+    expect(
+      savedGuests
+        .map((guest) => guest.marketingConsent)
+        .sort((left, right) => Number(left) - Number(right)),
+    ).toEqual([false, true]);
   });
 
   it('rejects the whole bulk request when any guest is invalid', async () => {

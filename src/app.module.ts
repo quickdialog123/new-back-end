@@ -16,6 +16,7 @@ import { OriginGuard } from './common/guards/origin.guard.js';
 import { HotelModule } from './hotels/hotels.module.js';
 import { GuestsModule } from './guests/guests.module.js';
 import { DatabaseExceptionFilter } from './common/errors/database-exception.filter.js';
+import { BroadcastCampaignsModule } from './broadcast-campaigns/broadcast-campaigns.module.js';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { DatabaseExceptionFilter } from './common/errors/database-exception.filt
     GuestsModule,
     LoggingModule,
     WhatsappModule,
+    BroadcastCampaignsModule,
   ],
   // Read this before start https://docs.nestjs.com/fundamentals/custom-providers
   providers: [

@@ -47,6 +47,18 @@ describe('bulkCreateGuestsSchema', () => {
     ).toBe(false);
   });
 
+  it('accepts an optional boolean marketing consent value', () => {
+    expect(createGuestSchema.parse(guest(1)).marketingConsent).toBe(false);
+    expect(
+      createGuestSchema.parse({ ...guest(1), marketingConsent: true })
+        .marketingConsent,
+    ).toBe(true);
+    expect(
+      createGuestSchema.safeParse({ ...guest(1), marketingConsent: 'yes' })
+        .success,
+    ).toBe(false);
+  });
+
   it('accepts a non-empty batch of valid guests', () => {
     expect(
       bulkCreateGuestsSchema.safeParse({ guests: [guest(1), guest(2)] })
@@ -118,6 +130,15 @@ describe('updateGuestSchema', () => {
         address: '42 Example Street',
       });
     }
+  });
+
+  it('allows changing marketing consent independently', () => {
+    expect(updateGuestSchema.parse({ marketingConsent: false })).toEqual({
+      marketingConsent: false,
+    });
+    expect(
+      updateGuestSchema.safeParse({ marketingConsent: 'false' }).success,
+    ).toBe(false);
   });
 });
 
