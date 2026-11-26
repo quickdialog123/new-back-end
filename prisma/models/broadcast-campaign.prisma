@@ -6,21 +6,21 @@ model BroadcastCampaign {
   templateLanguage String
   status           BroadcastCampaignStatus @default(DRAFT)
 
-  hotel              Hotel                     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotel              Hotel                    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   guests             BroadcastCampaignGuest[]
-  productRetailerIds String[]                  @default([])
-
-  @@index([hotelId])
+  productRetailerIds String[]                 @default([])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([hotelId])
 }
 
 model BroadcastCampaignGuest {
   campaignId String
   guestId    String
   messageId  String?
-  status     BroadcastGuestStatus?
+  status     BroadcastGuestStatus @default(PENDING)
 
   campaign BroadcastCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   guest    Guest             @relation(fields: [guestId], references: [id])
