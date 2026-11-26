@@ -134,6 +134,8 @@ export type MetaTemplateComponent = {
     header_text?: string[];
     header_handle?: string[];
     body_text?: string[][];
+    header_text_named_params?: { param_name: string; example: string }[];
+    body_text_named_params?: { param_name: string; example: string }[];
   };
   buttons?: MetaTemplateButton[];
 };
@@ -148,14 +150,14 @@ export type MetaTemplateRequestComponent =
       type: 'HEADER';
       format: 'TEXT';
       text: string;
-      example?: { header_text: string[] };
+      example?: { header_text_named_params: { param_name: string; example: string }[] };
     }
   | {
       type: 'HEADER';
       format: 'IMAGE' | 'VIDEO' | 'DOCUMENT';
       example: { header_handle: string[] };
     }
-  | { type: 'BODY'; text: string; example?: { body_text: string[][] } }
+  | { type: 'BODY'; text: string; example?: { body_text_named_params: { param_name: string; example: string }[] } }
   | { type: 'FOOTER'; text: string }
   | { type: 'BUTTONS'; buttons: MetaTemplateRequestButton[] };
 
@@ -164,11 +166,12 @@ export type MetaTemplateCreatePayload = {
   language: string;
   category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
   components: MetaTemplateRequestComponent[];
+  parameter_format?: 'NAMED';
 };
 
 export type MetaTemplateEditPayload = Pick<
   MetaTemplateCreatePayload,
-  'category' | 'components'
+  'category' | 'components' | 'parameter_format'
 >;
 
 export type MetaTemplate = {

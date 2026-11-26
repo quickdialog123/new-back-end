@@ -86,26 +86,34 @@ export class TemplatesService {
   }
 
   private components(input: TemplateInput) {
-    const names = new Map<string, number>();
-    const convert = (text: string) => text.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_match, name: string) => {
-      if (!names.has(name)) names.set(name, names.size + 1);
-      return `{{${names.get(name)}}}`;
-    });
     const sample = (name: string): string => {
       const value = input.sampleValues?.[name];
-      if (!value) throw new BadRequestException(`Sample value is required for ${name}`);
+      if (!value) throw new BadRequestException('Sample value is required for ' + name);
       return value;
+    };
+    const prepare = (value: string) => {
+      const names = new Set<string>();
+      const text = value.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_match, name: string) => {
+        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name))
+          throw new BadRequestException('Use named variables such as {{guest_name}}');
+        names.add(name);
+        return '{{' + name + '}}';
+      });
+      return { text, names: [...names] };
     };
     const components: MetaTemplateRequestComponent[] = [];
     if (input.header) {
       if (input.header.type === 'TEXT') {
-        const text = convert(input.header.text);
-        components.push({ type: 'HEADER', format: 'TEXT', text, ...(names.size ? { example: { header_text: [...names.keys()].map(sample) } } : {}) });
+        const header = prepare(input.header.text);
+        components.push({ type: 'HEADER', format: 'TEXT', text: header.text, ...(header.names.length ? {
+          example: { header_text_named_params: header.names.map((param_name) => ({ param_name, example: sample(param_name) })) },
+        } : {}) });
       } else components.push({ type: 'HEADER', format: input.header.type, example: { header_handle: [input.header.mediaHandle] } });
     }
-    names.clear();
-    const body = convert(input.body);
-    components.push({ type: 'BODY', text: body, ...(names.size ? { example: { body_text: [[...names.keys()].map(sample)] } } : {}) });
+    const body = prepare(input.body);
+    components.push({ type: 'BODY', text: body.text, ...(body.names.length ? {
+      example: { body_text_named_params: body.names.map((param_name) => ({ param_name, example: sample(param_name) })) },
+    } : {}) });
     if (input.footer) components.push({ type: 'FOOTER', text: input.footer });
     if (input.buttons.length) {
       const buttons: MetaTemplateRequestButton[] = input.buttons.map((button) => {
@@ -121,7 +129,7 @@ export class TemplatesService {
   async create(hotelId: string, input: TemplateInput) {
     const { wabaId, token } = await this.connection(hotelId);
     const components = this.components(input);
-    const submitted = await this.meta.createTemplate(wabaId, token, { name: input.name, language: input.language, category: input.category, components });
+    const submitted = await this.meta.createTemplate(wabaId, token, { name: input.name, language: input.language, category: input.category, components, parameter_format: 'NAMED' });
     if (!submitted) {
       throw new ConflictException('Meta did not confirm template submission');
     }
@@ -142,7 +150,7 @@ export class TemplatesService {
     const { wabaId, token } = await this.connection(hotelId);
     const current = await this.ownedTemplate(wabaId, token, id);
     if (input.name !== current.name || input.language !== current.language) throw new BadRequestException('Template name and language cannot be edited');
-    const response = await this.meta.editTemplate(id, token, { category: input.category, components: this.components(input) });
+    const response = await this.meta.editTemplate(id, token, { category: input.category, components: this.components(input), parameter_format: 'NAMED' });
     if (response?.success !== true || response.id !== id) throw new ConflictException('Meta did not confirm template update');
     return this.present(await this.meta.getTemplate(id, token));
   }
