@@ -20,10 +20,18 @@ async function bootstrap(): Promise<void> {
     }),
     {
       bufferLogs: true, // remove nest startup logs
+      rawBody: true,
     },
   );
 
   await app.register(fastifyCookie);
+
+  app.getHttpAdapter().getInstance().addContentTypeParser(
+    ['image/jpeg', 'image/png', 'video/mp4'],
+    // Parser headroom allows the service to return its own 15 MiB media validation error.
+    { parseAs: 'buffer', bodyLimit: 16 * 1024 * 1024 },
+    (_request, body, done) => done(null, body),
+  );
 
   const config = app.get(ConfigService); // load env vars
 

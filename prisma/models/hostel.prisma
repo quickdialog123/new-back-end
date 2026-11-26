@@ -1,9 +1,0 @@
-model Hostel {
-  id          String   @id @default(uuid())
-  name        String
-  phoneNumber String
-  token       String   @unique
-  users       User[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}

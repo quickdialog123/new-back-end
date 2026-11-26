@@ -5,7 +5,7 @@ import { jwtPayloadSchema } from '@quickdialog/auth/schemas/jwt-payload.schema.j
 const validPayload = {
   sub: '4e3ee6a0-eec9-47c8-9fe3-e92afe8a2b1b',
   sid: '8d234fad-ceec-4f64-bb1b-1459c0b16cd7',
-  hotelId: null,
+  hotelId: 'c5497c67-4e65-4644-bbb9-e9fb40f76627',
   role: 'OWNER' as const,
 };
 
@@ -57,6 +57,12 @@ describe('jwtPayloadSchema', () => {
       ...validPayload,
       role: 'INVALID',
     });
+
+    expect(result.success).toBe(false);
+  });
+
+  it.each(['CLIENT', 'AUTHORITY'])('rejects the removed %s role', (role) => {
+    const result = jwtPayloadSchema.safeParse({ ...validPayload, role });
 
     expect(result.success).toBe(false);
   });

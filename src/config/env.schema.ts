@@ -41,6 +41,15 @@ export const envSchema = z.object({
     .string()
     .default('REST API for the QuickDialog hotel messaging platform.'),
   SWAGGER_VERSION: z.string().default('1.0'),
+  // Meta / WhatsApp
+  META_GRAPH_VERSION: z
+    .string()
+    .regex(/^v\d+\.\d+$/, 'META_GRAPH_VERSION must look like v24.0'),
+  META_APP_ID: z.string().min(1),
+  META_APP_SECRET: z.string().min(1),
+  META_TOKEN_ENCRYPTION_KEY: z.string().min(1),
+  META_WEBHOOK_VERIFY_TOKEN: z.string().min(32),
+  META_EMBEDDED_SIGNUP_CONFIG_ID: z.string().min(1),
 });
 
 export type Environment = z.infer<typeof envSchema>;

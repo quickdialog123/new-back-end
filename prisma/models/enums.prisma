@@ -2,6 +2,24 @@ enum UserRole {
   OWNER
   STAFF
   SUPER_ADMIN
-  CLIENT
-  AUTHORITY
+}
+
+enum WhatsAppAccountStatus {
+  CONNECTED
+  NOT_CONNECTED
+  UNVERIFIED
+}
+
+enum BroadcastGuestStatus {
+  PENDING
+  RECEIVED
+  FAILED
+}
+
+enum BroadcastCampaignStatus {
+  DRAFT
+  SENDING
+  COMPLETED
+  FAILED
+  CANCELLED
 }

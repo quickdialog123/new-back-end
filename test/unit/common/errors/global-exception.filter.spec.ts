@@ -1,4 +1,5 @@
 import {
+  BadGatewayException,
   BadRequestException,
   ConflictException,
   ForbiddenException,
@@ -15,6 +16,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { GlobalExceptionFilter } from '@quickdialog/common/errors/global-exception.filter.js';
+import { MetaApiError } from '@quickdialog/common/errors/meta-api.error.js';
 
 describe('GlobalExceptionFilter', () => {
   let filter: GlobalExceptionFilter;
@@ -118,6 +120,94 @@ describe('GlobalExceptionFilter', () => {
     );
 
     expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('exposes Meta API error context as details with an internal server error status', () => {
+    const metaError = {
+      message: 'Application does not have permission for this action',
+      type: 'OAuthException',
+      code: 10,
+      error_subcode: 1690129,
+      error_user_title: 'Permission Required to Create Catalogue',
+      error_user_msg: 'You do not have permission to create a catalogue.',
+    };
+
+    filter.catch(new MetaApiError(metaError), host as never);
+
+    expect(reply).toHaveBeenCalledWith(
+      response,
+      expect.objectContaining({
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        code: 'META_API_ERROR',
+        details: metaError,
+      }),
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+  });
+
+  it('uses a specific error code for Meta gateway failures', () => {
+    filter.catch(
+      new BadGatewayException('Meta WhatsApp API request failed'),
+      host as never,
+    );
+
+    expect(reply).toHaveBeenCalledWith(
+      response,
+      expect.objectContaining({
+        statusCode: 502,
+        code: 'BAD_GATEWAY',
+        message: 'Meta WhatsApp API request failed',
+      }),
+      502,
+    );
+  });
+
+  it('formats Meta Graph API errors from the interceptor as internal server errors', () => {
+    const metaError = {
+      message: 'Application does not have permission for this action',
+      type: 'OAuthException',
+      code: 10,
+      error_subcode: 1690129,
+      error_user_title: 'Permission Required to Create Catalogue',
+      error_user_msg: 'You do not have permission to create a catalogue.',
+    };
+
+    filter.catch(new MetaApiError(metaError), host as never);
+
+    expect(reply).toHaveBeenCalledWith(
+      response,
+      expect.objectContaining({
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        code: 'META_API_ERROR',
+        message: 'Meta API request failed',
+        details: metaError,
+      }),
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('does not treat non-Meta HTTP client errors as Meta errors', () => {
+    const error = Object.assign(
+      new Error('Request failed with status code 400'),
+      {
+        url: new URL('https://other.example.com/resource'),
+        status: 400,
+        body: { message: 'Other service failure' },
+      },
+    );
+
+    filter.catch(error, host as never);
+
+    expect(reply).toHaveBeenCalledWith(
+      response,
+      expect.objectContaining({
+        statusCode: 500,
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Internal server error',
+      }),
+      500,
+    );
   });
 
   it('formats UnauthorizedException', () => {

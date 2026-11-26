@@ -44,11 +44,42 @@ The project is intentionally kept as a modular monolith. Business features live 
 │   ├── common/
 │   │   ├── decorators/
 │   │   ├── errors/
+│   │   │   ├── database-exception.filter.ts
+│   │   │   ├── global-exception.filter.ts
+│   │   │   └── validation-exception.factory.ts
 │   │   ├── guards/
 │   │   └── logging/
 │   ├── config/
 │   ├── database/
 │   ├── health/
+│   ├── hotels/
+│   │   ├── schemas/
+│   │   ├── hotels.controller.ts
+│   │   ├── hotels.module.ts
+│   │   └── hotels.service.ts
+│   ├── whatsapp/
+│   │   ├── embedded-signup/
+│   │   │   ├── schemas/
+│   │   │   ├── embedded-signup.controller.ts
+│   │   │   └── embedded-signup.service.ts
+│   │   ├── meta/
+│   │   │   ├── meta-graph.client.ts
+│   │   │   ├── meta-token.util.ts
+│   │   │   └── meta.types.ts
+│   │   ├── webhooks/
+│   │   │   ├── webhook-signature.guard.ts
+│   │   │   ├── webhook.controller.ts
+│   │   │   ├── webhook.service.ts
+│   │   │   └── webhook.types.ts
+│   │   ├── catalog/
+│   │   │   ├── catalog.controller.ts
+│   │   │   ├── catalog.service.ts
+│   │   │   └── schemas/
+│   │   │       ├── catalog.schema.ts
+│   │   │       └── product.schema.ts
+│   │   ├── whatsapp.controller.ts
+│   │   ├── whatsapp.module.ts
+│   │   └── whatsapp.service.ts
 │   ├── swagger/
 │   │   ├── decorators/
 │   │   ├── examples/
@@ -71,7 +102,7 @@ The project is intentionally kept as a modular monolith. Business features live 
 The normal request path is:
 
 ```text
-HTTP request -> Fastify -> Global guards / validation -> Controller -> Service -> Prisma / external integration -> PostgreSQL
+HTTP request -> Fastify -> Global guards / Zod validation -> Controller -> Service -> Prisma / external integration -> PostgreSQL
 ```
 
 A few rules are intentional:
@@ -107,7 +138,7 @@ Access tokens are sent as bearer tokens:
 Authorization: Bearer <access-token>
 ```
 
-Refresh tokens are stored in an HttpOnly cookie and are not stored in plaintext in the database (hashed).
+Refresh tokens are stored in an HttpOnly cookie and are not stored in plaintext in the database.
 
 ### Access token behavior
 
@@ -115,9 +146,91 @@ Access tokens are stateless. Logging out revokes refresh sessions, but an alread
 
 Keep access-token TTL short for that reason.
 
+### JWT payload validation
+
+The JWT strategy verifies the token issuer, audience, expiration, and HS256 signature before validating the payload with Zod. Payloads require a non-empty `sub`, UUID `sid`, and a role-compatible `hotelId`: `SUPER_ADMIN` may have a nullable hotel ID, while all other roles require a UUID hotel ID. Invalid payloads receive a 401 response.
+
+## Hotels
+
+Hotel endpoints require the `SUPER_ADMIN` role. The following paths use the default `API_PREFIX=api`:
+
+- `POST /api/hotels` creates a hotel and its initial owner in one transaction.
+- `GET /api/hotels` lists hotels, including inactive hotels.
+- `GET /api/hotels/:id` retrieves one hotel.
+- `PATCH /api/hotels/:id` updates one or more hotel fields.
+- `POST /api/hotels/:id/deactivate` deactivates a hotel.
+
+Hotel IDs are UUIDs. Creating a hotel requires its name, phone number, token, and owner email, full name, and password. Updates require at least one of name, phone number, or token.
+
+Successful responses never include hotel tokens or owner password hashes. Deactivation is not a hard delete: it runs atomically, marks the hotel and its users inactive, and revokes active refresh sessions. It does not invalidate access JWTs that were already issued.
+
+There is no reactivation endpoint. `PATCH /api/hotels/:id` cannot change a hotel's `active` state.
+
+## Guests
+
+Guest endpoints require an authenticated `OWNER` or `STAFF` user and are automatically scoped to that user's hotel:
+
+- `POST /api/guests` creates a guest.
+- `POST /api/guests/bulk` creates 1–500 guests in one database operation. Send `{ "guests": [{ "fullName": "...", "email": "...", "phoneNumber": "..." }] }`; the response is `{ "count": <number> }`. The whole request is rejected if any row is invalid.
+- `DELETE /api/guests/bulk` deletes matching guests by ID (1–500 UUIDs). Send `{ "ids": ["<guest-id>"] }`; guests outside the authenticated user's hotel are not deleted. The response is `{ "count": <number> }`.
+- `GET /api/guests` lists guests for the hotel.
+- `GET /api/guests/:id` retrieves a guest.
+- `PATCH /api/guests/:id` updates one or more guest fields.
+- `DELETE /api/guests/:id` deletes a guest.
+
+Guests require a full name, email, and phone number. Contact details are not unique, and reservations are not included in this MVP.
+
+## WhatsApp connection
+
+WhatsApp connections are hotel-scoped and can be managed by an authenticated hotel owner. Embedded Signup is completed through `POST /api/whatsapp/embedded-signup/complete`; the backend exchanges its code, validates the selected WABA and phone number, subscribes the app, and stores the Meta access token encrypted.
+
+After Embedded Signup, the account is saved as `unverified` until the user submits the six-digit WhatsApp PIN:
+
+- `unverified`: Embedded Signup completed; PIN registration is still required.
+- `connected`: Meta's register endpoint accepted the number and PIN.
+- `not_connected`: no active connection exists.
+
+The frontend should prompt for a PIN whenever status is `unverified`. Submit it using:
+
+- `POST /api/whatsapp/register` with `{ "pin": "123456" }` to register the phone number with Cloud API. A successful response moves the connection to `connected`.
+- `GET /api/whatsapp/status` to read the current state.
+
+The API does not persist the PIN. Meta credentials and tokens remain server-side; the token is stored encrypted and is never included in status responses.
+
+### Meta product catalogs
+
+The catalog connection endpoints manage which Meta catalog is connected to the hotel's WhatsApp Business Account (WABA). Product endpoints manage items in catalogs accessible to the hotel's connected Meta business. These are separate concepts and routes: `GET /api/whatsapp/catalogs/connection` reports the active WABA catalog and visibility/cart settings, while `GET /api/whatsapp/catalogs` lists catalogs accessible to the business. QuickDialog reads and writes this data through Meta and does not persist a local product copy. Catalog IDs are checked against the authenticated hotel's Meta account before operations.
+
+Catalog connection and WhatsApp commerce settings (authenticated hotel owner):
+
+- `GET /api/whatsapp/catalogs/connection` returns `{ status, catalog, catalogVisible, cartEnabled }`. `status` is `not_connected`, `connected`, or `hidden`; `catalog` is `null` when none is connected, otherwise it contains `id`, `name`, `vertical`, and `productCount`.
+- `GET /api/whatsapp/catalogs/available` lists catalogs available to connect, as objects with `id`, `name`, `vertical`, and `productCount`.
+- `POST /api/whatsapp/catalogs/connect` connects a selected catalog; send `{ "catalogId": "<catalog-id>" }`. The response is the refreshed connection state.
+- `POST /api/whatsapp/catalogs/disconnect` disconnects the active catalog. The response is the refreshed connection state.
+- `PATCH /api/whatsapp/catalogs/settings` updates one or both settings; send `{ "catalogVisible": true, "cartEnabled": false }` (either property may be omitted, but not both). The response is the refreshed connection state.
+
+Use the connection endpoint to choose the page state: `not_connected` should show the catalog-connect flow; `connected` and `hidden` mean a catalog is linked and its `catalog.id` can be used for product management. `hidden` means the catalog is linked but not currently visible in WhatsApp. The product-list endpoint remains useful for browsing any accessible catalog and does not itself connect it to the WABA.
+
+- `GET /api/whatsapp/catalogs` lists catalogs accessible to the hotel's Meta business.
+- `GET /api/whatsapp/catalogs/:catalogId/products` lists products; use the returned paging cursor as `?after=...` for the next page.
+- `POST /api/whatsapp/catalogs/:catalogId/products` submits a product create operation.
+- `PATCH /api/whatsapp/catalogs/:catalogId/products/:productId` submits a product update.
+- `DELETE /api/whatsapp/catalogs/:catalogId/products/:productId` submits a product deletion.
+- `GET /api/whatsapp/catalogs/:catalogId/operations/:handle` checks the Meta batch status. When finished, the response includes refreshed product data.
+
+Product creation accepts name, description, product URL, image URL, price, ISO currency code, availability, brand, and condition. The backend generates the Meta retailer product ID and returns it for later update/delete requests. Price and currency are combined into Meta's expected format (for example, `12.50 USD`). Meta batch writes can complete asynchronously; write endpoints return status and a handle, and clients should poll the operation endpoint while status is still processing.
+
+## WhatsApp templates
+
+`/api/whatsapp/templates` provides hotel-scoped list, detail, submit, edit, and delete operations against the connected hotel's Meta WABA. List returns `{ data, paging: { after } }`; detail, submit, and edit return template fields `id`, `name`, `category`, `language`, `header`, `body`, `footer`, `buttons`, and Meta's current `status`. `broadcastEligible` is true only when that status is `APPROVED`. Meta remains the source of truth; broadcast sending must recheck the current Meta status before sending.
+
+Submit and edit accept the wizard fields plus `sampleValues` for each named `{{variable}}`. The backend converts names to Meta's positional placeholders and supplies examples. Meta does not retain the original variable names, so subsequent list/detail results contain `{{1}}`, `{{2}}`, etc.; broadcast integration must map guest values to those positions. For image/video headers, first `POST /api/whatsapp/templates/media` with raw file bytes (`Content-Type: image/jpeg`, `image/png`, or `video/mp4`; `X-File-Name` header; maximum 15 MB). The response is `{ "mediaHandle": "..." }`; include that handle in `header.mediaHandle` when submitting the template. The file or data URL must not be included in template JSON. The current generic wizard cannot submit `AUTHENTICATION` templates because it lacks Meta's authentication-specific settings and OTP button fields. Catalog templates require a Meta catalog ID and product retailer ID that the frontend does not provide.
+
+There is no backend draft store. `POST /whatsapp/templates` submits to Meta for review and returns Meta's status; it never returns `DRAFT`. The wizard's Save draft action remains frontend-only until a separate draft persistence contract exists. Meta does not provide an `updatedAt` value in the fields currently requested, so the response does not fabricate one. The frontend's edit UI is not implemented yet.
+
 ## Validation
 
-Request validation uses Zod through Nest `StandardSchemaValidationPipe` (Build-in).
+Request validation uses Zod through Nest's built-in `StandardSchemaValidationPipe`.
 
 Example:
 
@@ -132,7 +245,7 @@ Environment variables are also validated before the application starts.
 
 ## Error responses
 
-`GlobalExceptionFilter` normalizes API errors into one response shape (uniform)
+All API errors use one response shape.
 
 Example:
 
@@ -148,6 +261,13 @@ Example:
 ```
 
 Validation errors may also contain `details`.
+
+Two global filters own the error handling responsibilities:
+
+- `DatabaseExceptionFilter` handles `PrismaClientKnownRequestError` only. It maps `P2002` to 409 conflict and `P2025` to 404 not found. Other Prisma known-request errors are logged and return a generic 500 response.
+- `GlobalExceptionFilter` handles HTTP exceptions, Zod-derived validation exceptions, and every exception that is not a Prisma known-request error.
+
+Both filters are registered through `APP_FILTER`. `DatabaseExceptionFilter` is registered after `GlobalExceptionFilter` because Nest evaluates global filters in reverse registration order, allowing Prisma errors to reach the database filter first.
 
 Unexpected exceptions are logged, while internal implementation details are not returned to the client.
 
@@ -170,7 +290,7 @@ Request IDs are included in logs and error responses so a request can be traced 
 
 ## Swagger
 
-Swagger is kept separate from controller logic
+Swagger is kept separate from controller logic.
 
 ```text
 src/swagger/
@@ -192,39 +312,19 @@ Controllers should use small composite decorators such as:
 
 instead of large blocks of Swagger decorators directly in controller methods.
 
-Swagger contribution rules are documented in: [[Guidelines](./src/swagger/README.md)]
+Swagger contribution rules are documented in [the Swagger guidelines](./src/swagger/README.md).
 
-When an API contract changes, update the implementation, validation, Swagger documentation and tests in the same PR.
+Hotel endpoints document their success, validation, authentication, authorization, conflict, and not-found responses. When an API contract changes, update the implementation, Zod validation, Swagger documentation, and tests in the same PR.
 
 ## Database and Prisma
 
-`DatabaseModule` exposes a single `PrismaService` dont DI is already have global injection.
+`DatabaseModule` is global and exports a single `PrismaService` for dependency injection.
 
 ```text
 Service -> PrismaService -> PrismaPg adapter -> PostgreSQL
 ```
 
-Prisma CLI and the running application can use separate database credentials.
-
-Recommended environment variables (Future):
-
-```env
-DATABASE_URL=postgresql://quickdialog_app:password@localhost:5432/quickdialog
-DIRECT_URL=postgresql://quickdialog_migrator:password@localhost:5432/quickdialog
-SHADOW_DATABASE_URL=postgresql://quickdialog_migrator:password@localhost:5432/quickdialog_shadow
-```
-
-Usage:
-
-```text
-DATABASE_URL -> NestJS runtime
-
-DIRECT_URL -> Prisma CLI / migrations
-
-SHADOW_DATABASE_URL -> prisma migrate dev only
-```
-
-Production normally needs only `DATABASE_URL` and `DIRECT_URL` (NOW WE USE ONLY `DATABASE_URL`)
+Prisma CLI and the running application use `DATABASE_URL`. The current Prisma configuration does not define `DIRECT_URL` or `SHADOW_DATABASE_URL`.
 
 Do not run development seeding against production
 
@@ -268,6 +368,13 @@ SWAGGER_ENABLED=true
 SWAGGER_PATH=docs
 
 LOG_LEVEL=debug
+
+META_GRAPH_VERSION=v26.0
+META_APP_ID=
+META_APP_SECRET=
+META_TOKEN_ENCRYPTION_KEY=
+META_EMBEDDED_SIGNUP_CONFIG_ID=
+META_WEBHOOK_VERIFY_TOKEN=
 ```
 
 Keep real secrets out of Git.
@@ -312,13 +419,14 @@ Swagger is mounted only when `SWAGGER_ENABLED=true`.
 
 The project uses Vitest.
 Unit tests cover isolated application behavior.
-Integration tests use a real PostgreSQL instance through Testcontainers and apply Prisma migrations before running.
+Integration tests use a real PostgreSQL instance through Testcontainers and apply Prisma migrations before running. The current suite covers authentication flows, hotel service and HTTP behavior, JWT validation, and both exception filters. Migration-specific tests are not part of the integration suite.
 
 Useful commands:
 
 ```bash
 pnpm test:unit
 pnpm test:integration
+pnpm test:all
 pnpm test:coverage
 ```
 
@@ -376,6 +484,7 @@ pnpm typecheck
 # tests
 pnpm test:unit
 pnpm test:integration
+pnpm test:all
 pnpm test:coverage
 
 # Prisma
